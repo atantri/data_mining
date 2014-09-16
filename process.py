@@ -35,14 +35,14 @@ class corpus:
 		"""
 		stop = stopwords.words('english')
 		try:
-		    i = stop.index(word.lower())
+			i = stop.index(word.lower())
 		except ValueError:
-	    	    i = -1
+			i = -1
 
 		if(i == -1):
-		    return False
+			return False
 		else:
-		    return True 
+			return True 
 
 
 	def get_raw_data(self):
@@ -70,15 +70,13 @@ class corpus:
 					temp_word_attr = article_dic[s_word]
 					temp_word_attr.wrd_count = temp_word_attr.wrd_count + 1
 				else:
-				 	new_art_attr = local_word_attributes(1)
-				 	article_dic[s_word] = new_art_attr
-				 	if(global_dic.has_key(s_word)):
-							temp_word_global = global_dic[s_word]
-							temp_word_global.art_count = temp_word_global.art_count + 1
+					new_art_attr = local_word_attributes(1)
+					article_dic[s_word] = new_art_attr
+					if global_dic.has_key(s_word):
+						temp_word_global = global_dic[s_word]
+						temp_word_global.art_count = temp_word_global.art_count + 1
 					else:
-						 	new_global_attr = global_word_attributes(1, 0)
-						 	global_dic[s_word] = new_global_attr
-					
+						print("A")
 							
 	def build_document_corpus(self):
 		for raw_art in self.list_raw_articles:

@@ -76,7 +76,8 @@ class corpus:
 						temp_word_global = global_dic[s_word]
 						temp_word_global.art_count = temp_word_global.art_count + 1
 					else:
-						print("A")
+						new_global_attr = global_word_attributes(1, 0)
+						global_dic[s_word] = new_global_attr
 							
 	def build_document_corpus(self):
 		for raw_art in self.list_raw_articles:

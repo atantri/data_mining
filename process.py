@@ -1,5 +1,6 @@
 import urllib.request
 import nltk
+import math
 from nltk.corpus import stopwords
 from html.parser import HTMLParser
 from nltk.tokenize import RegexpTokenizer
@@ -9,24 +10,32 @@ from nltk.stem.lancaster import LancasterStemmer
 class global_word_attributes:
 	"""
 	Count here holds the number of articles with
-	the presence.
+	the presence. it is part of global dictionary
 	"""
-	def __init__(self, count, tf_idf):
+	def __init__(self, count, idf, tf_idf):
 		self.art_count = count
+		self.idf = idf 
 		self.tf_idf = tf_idf
+
+	def __str__(self):
+		return str(self.art_count)
 
 class local_word_attributes:
 	"""
 	Count here holds the number of times the word occurs
-	in the article
+	in the article. Local dictionary for the given article.
 	"""
 	def __init__(self, count):
 		self.wrd_count = count
+		self.term_fre = 0
 
 		
+	def __str__(self):
+		return str(self.wrd_count)
+
 class corpus:
-	def __init__():
-		self.list_raw_articles = []
+	def __init__(self):
+		self.list_articles = []
 		self.raw_dictionary = {}
         
 	def is_stop_word(self, word):
@@ -45,43 +54,60 @@ class corpus:
 			return True 
 
 
-	def get_raw_data(self):
-		self.list_raw_articles = call_aneesh();
+	def get_raw_data(self, lis):
+		self.list_articles = lis;
 
 	def parse_raw_data(self, new_art):
 		tokenizer = RegexpTokenizer(r'\w+')
-		tokens = tokenizer.tokenize(new_art.data)
+		tokens = tokenizer.tokenize(new_art.body)
 		stemmer = LancasterStemmer()
 		article_dic = new_art.words
 		global_dic = self.raw_dictionary
 		
 		for word in tokens:
 			word = word.lower()
-			if(False == is_stop_word(word)):
-				s_word = stemmer(word)
+			if(False == self.is_stop_word(word)):
+			#	s_word = stemmer.stem(word)
+				s_word = word
 			## it is not a stop word, check if the word
 			## is already part of the article dictionary.
 			## if yes, increment the count else add it.
 			## If you are adding check if it is part of 
 			## the big corpus, if yes increment the count
 			## of number of articles with that word.
-				new_art.doc_lenght = new_art.doc_lenght + 1
-				if(article_dic.has_key(s_word)):
+				new_art.doc_len = new_art.doc_len + 1
+				if(s_word in article_dic):
 					temp_word_attr = article_dic[s_word]
 					temp_word_attr.wrd_count = temp_word_attr.wrd_count + 1
 				else:
 					new_art_attr = local_word_attributes(1)
 					article_dic[s_word] = new_art_attr
-					if global_dic.has_key(s_word):
+					if (s_word in global_dic):
 						temp_word_global = global_dic[s_word]
 						temp_word_global.art_count = temp_word_global.art_count + 1
 					else:
-						new_global_attr = global_word_attributes(1, 0)
+						new_global_attr = global_word_attributes(1, 0, 0)
 						global_dic[s_word] = new_global_attr
-							
+	
+
+
+
 	def build_document_corpus(self):
-		for raw_art in self.list_raw_articles:
+		for raw_art in self.list_articles:
+		#Create the dictionary for the given article and calculate term frequency.
 			self.parse_raw_data(raw_art)
+			raw_art.term_freq()
+		self.inverse_document_freq()
+
+
+	def inverse_document_freq(self):
+        #Calculate IDF for the entire corpus.
+        #IDF = log(Total number of documents / Number of documents with term t in it).
+		number_of_documents = len(self.list_articles)
+		# Number of elemets in the list gives the number of articles
+		for key, value in self.raw_dictionary.items():
+			value.idf = math.log(number_of_documents/value.art_count)
+
 		    
 
 
@@ -95,6 +121,14 @@ class Article:
 		self.body="";
 		self.words = {}
 		self.doc_len = 0
+
+	def term_freq(self):
+	#Calculate the term frequency for each word in the dictionary
+	#TF(t) = (Number of times term t appears in a document) 
+	#          / (Total number of terms in the document).
+		for key, value in self.words.items():
+			value.term_fre = value.wrd_count/self.doc_len
+
 
 class MyHTMLParser(HTMLParser):
 	def __init__(self):
@@ -160,3 +194,10 @@ for article in parser.articleList:
 		print (place+"\n")
 
 	print(article.body)
+
+run = corpus()
+run.get_raw_data(parser.articleList)
+run.build_document_corpus()
+for entry in run.list_articles:
+	pass
+#	print(entry.topics)

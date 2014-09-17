@@ -6,16 +6,19 @@ from html.parser import HTMLParser
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from nltk.stem.lancaster import LancasterStemmer
-
+import operator
+import collections
+from collections import OrderedDict
 class global_word_attributes:
 	"""
 	Count here holds the number of articles with
 	the presence. it is part of global dictionary
 	"""
-	def __init__(self, count, idf, tf_idf):
+	def __init__(self, count,wc, idf, tf_idf):
 		self.art_count = count
 		self.idf = idf 
 		self.tf_idf = tf_idf
+		self.wrd_count=wc#added this to store global count
 
 	def __str__(self):
 		return str(self.art_count)
@@ -36,8 +39,8 @@ class local_word_attributes:
 class corpus:
 	def __init__(self):
 		self.list_articles = []
-		self.raw_dictionary = {}
-        
+		self.raw_dictionary ={}
+		self.sortedDictionary=OrderedDict()
 	def is_stop_word(self, word):
 		"""
 		Returns true if the word is a stop word
@@ -66,7 +69,7 @@ class corpus:
 		
 		for word in tokens:
 			word = word.lower()
-			if(False == self.is_stop_word(word)):
+			if(False == self.is_stop_word(word) and word.isnumeric()==False):
 			#	s_word = stemmer.stem(word)
 				s_word = word
 			## it is not a stop word, check if the word
@@ -77,17 +80,14 @@ class corpus:
 			## of number of articles with that word.
 				new_art.doc_len = new_art.doc_len + 1
 				if(s_word in article_dic):
-					temp_word_attr = article_dic[s_word]
-					temp_word_attr.wrd_count = temp_word_attr.wrd_count + 1
+					article_dic[s_word].wrd_count+=1
+					global_dic[s_word].wrd_count+=1
 				else:
-					new_art_attr = local_word_attributes(1)
-					article_dic[s_word] = new_art_attr
+					article_dic[s_word] = local_word_attributes(1)
 					if (s_word in global_dic):
-						temp_word_global = global_dic[s_word]
-						temp_word_global.art_count = temp_word_global.art_count + 1
+						global_dic[s_word].art_count+=1
 					else:
-						new_global_attr = global_word_attributes(1, 0, 0)
-						global_dic[s_word] = new_global_attr
+						 global_dic[s_word] = global_word_attributes(1,1, 0, 0)
 	
 
 
@@ -99,7 +99,34 @@ class corpus:
 			raw_art.term_freq()
 		self.inverse_document_freq()
 
-
+	def filterWords(self):
+		global_dic=self.raw_dictionary
+		self.sortedDictionary=OrderedDict(sorted(global_dic.items(),key=lambda x:x[1].wrd_count))#returns a sorted global dictionary sorted by the frequencies
+		length=len(self.sortedDictionary)/100##to eliminate bottom and top 1%
+		i=0
+		for (key,value) in self.sortedDictionary.items():#loop to eliminate
+			self.sortedDictionary.popitem(last=False)#delete from beginning
+			self.sortedDictionary.popitem()#delete from end
+			i+=1
+			if(i>=length):
+				break
+		print(len(self.sortedDictionary))#seems to be a bit high, we need to stem
+		for art in self.list_articles:#loop through all articles
+			for t in art.topics:#print class labels
+				print(t,end=" ")
+			print(";",end="")
+			for p in art.places:
+				print(p,end=" ")
+			for (word,value) in self.sortedDictionary.items():#for every word in the sorted dictionary
+				if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
+					print(art.words[word].wrd_count,end="")#print this non zero dimension. the dimensions for which the if condition is false are all 0, we have a sparse vector
+				#for such non zero dimensions, we can calculate tf-idf score.
+				#i tried flipping the parameters of the for loop to delete all words in the article that dont exist in our refined dictionary,got the stupid error:
+				#RuntimeError: dictionary changed size during iteration
+				#which I somehow didnt get when deleting from the OrderedDict sortedDictionary.
+				#which means we can create a new data structure to store results maybe
+			print("")
+		
 	def inverse_document_freq(self):
         #Calculate IDF for the entire corpus.
         #IDF = log(Total number of documents / Number of documents with term t in it).
@@ -176,12 +203,14 @@ parser=MyHTMLParser()
 for i in range(1):
 	if i<10:
 		url1=url+"0"+str(i)+".sgm"
-		print(url+"0"+str(i)+".sgm")
+		
 	else:
-		url1=url+"0"+str(i)+".sgm"
-		print(url+str(i)+".sgm")
-
-	raw = urllib.request.urlopen(url1).read().decode('utf8')
+		url1=url+str(i)+".sgm"
+		
+		
+	response=urllib.request.urlopen(url1)
+	codec = response.info().get_param('charset', 'utf-8')
+	raw = response.read().decode(codec,'replace')
 	
 	parser.feed(raw)
 	print(len(parser.articleList))
@@ -194,10 +223,19 @@ for article in parser.articleList:
 		print (place+"\n")
 
 	print(article.body)
+	
 
 run = corpus()
+
 run.get_raw_data(parser.articleList)
 run.build_document_corpus()
+run.filterWords()#This will filter the top 1% and bottom 1 % from the global dictionary based on frequencies
+"""
+for (word,obj) in run.sortedDictionary.items():
+	print(word+" "+str(obj.wrd_count));
+
+	
 for entry in run.list_articles:
 	pass
 #	print(entry.topics)
+"""

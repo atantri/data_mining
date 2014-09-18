@@ -1,0 +1,1 @@
+Run program by typing make -f makfile. make sure that there is an internet connection as the program makes http requests to retrieve the sgm files.at the end the non zero dimensions of the feature vector get displayed on the screen.

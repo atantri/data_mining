@@ -41,6 +41,7 @@ class corpus:
 		self.list_articles = []
 		self.raw_dictionary ={}
 		self.sortedDictionary=OrderedDict()
+		self.max=0
 	def is_stop_word(self, word):
 		"""
 		Returns true if the word is a stop word
@@ -70,8 +71,10 @@ class corpus:
 		for word in tokens:
 			word = word.lower()
 			if(False == self.is_stop_word(word) and word.isnumeric()==False):
-			#	s_word = stemmer.stem(word)
-				s_word = word
+				s_word = stemmer.stem(word)
+				if(self.max<len(s_word)):
+					self.max=len(s_word)
+			#	s_word = word
 			## it is not a stop word, check if the word
 			## is already part of the article dictionary.
 			## if yes, increment the count else add it.
@@ -88,7 +91,7 @@ class corpus:
 						global_dic[s_word].art_count+=1
 					else:
 						 global_dic[s_word] = global_word_attributes(1,1, 0, 0)
-	
+		
 
 
 
@@ -102,30 +105,48 @@ class corpus:
 	def filterWords(self):
 		global_dic=self.raw_dictionary
 		self.sortedDictionary=OrderedDict(sorted(global_dic.items(),key=lambda x:x[1].wrd_count))#returns a sorted global dictionary sorted by the frequencies
-		length=len(self.sortedDictionary)/100##to eliminate bottom and top 1%
+		length=len(self.sortedDictionary)*95.5/100## eliminate bottom and top 1%
+		
 		i=0
 		for (key,value) in self.sortedDictionary.items():#loop to eliminate
 			self.sortedDictionary.popitem(last=False)#delete from beginning
-			self.sortedDictionary.popitem()#delete from end
+			
 			i+=1
 			if(i>=length):
 				break
-		print(len(self.sortedDictionary))#seems to be a bit high, we need to stem
-		for art in self.list_articles:#loop through all articles
-			for t in art.topics:#print class labels
-				print(t,end=" ")
-			print(";",end="")
-			for p in art.places:
-				print(p,end=" ")
-			for (word,value) in self.sortedDictionary.items():#for every word in the sorted dictionary
-				if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
-					print(art.words[word].wrd_count,end="")#print this non zero dimension. the dimensions for which the if condition is false are all 0, we have a sparse vector
-				#for such non zero dimensions, we can calculate tf-idf score.
-				#i tried flipping the parameters of the for loop to delete all words in the article that dont exist in our refined dictionary,got the stupid error:
-				#RuntimeError: dictionary changed size during iteration
-				#which I somehow didnt get when deleting from the OrderedDict sortedDictionary.
-				#which means we can create a new data structure to store results maybe
-			print("")
+		self.sortedDictionary.popitem()
+		print("Length of feature vector(Number of dimensions i.e number of words)="+str(len(self.sortedDictionary)))#seems to be a bit high, we need to stem
+		print("Words chosen (stemmed) followed by the count of each word:")
+		for (key,value) in self.sortedDictionary.items():
+			print(key+" "+str(value.wrd_count))
+		try:
+			f=open('featureVector','w')
+			for art in self.list_articles:#loop through all articles
+				
+				for t in art.topics:#print class labels
+					#print(t,end=" ")
+					f.write(t+",")
+				#print(";",end="")
+				f.write(";")
+				for p in art.places:
+					#print(p,end=" ")
+					f.write(p+",")
+				#print(art.id,end="")
+				f.write(art.id+" ")
+				for (word,value) in self.sortedDictionary.items():#for every word in the sorted dictionary. this defines the dimensions of the feature vector
+					if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
+						art.featureVector.append(art.words[word].wrd_count)
+					else:
+						art.featureVector.append(0)
+				
+					
+				for dim in art.featureVector:
+					f.write(str(dim))
+						
+				#print("")
+				f.write("\n")
+		except BaseException:
+			print("Couldn't open file for writing")
 		
 	def inverse_document_freq(self):
         #Calculate IDF for the entire corpus.
@@ -141,6 +162,7 @@ class corpus:
 
 
 
+		
 class Article:	
 	def __init__(self):
 		self.topics=[];
@@ -148,6 +170,8 @@ class Article:
 		self.body="";
 		self.words = {}
 		self.doc_len = 0
+		self.featureVector=[]#stores final feature vector
+		self.id=""
 
 	def term_freq(self):
 	#Calculate the term frequency for each word in the dictionary
@@ -167,6 +191,11 @@ class MyHTMLParser(HTMLParser):
 		self.ListTag=0;
 		self.articleList=[]
 	def handle_starttag(self, tag, attrs):
+		
+		if tag.upper()=="REUTERS":
+			for key,value in attrs:
+				if key.lower()=="oldid":
+					self.article.id=value
 
 		if tag.upper()=="TOPICS":
 			self.article=Article()
@@ -200,7 +229,7 @@ class MyHTMLParser(HTMLParser):
 			self.article.places.append(data);
 url = "http://web.cse.ohio-state.edu/~srini/674/public/reuters/reut2-0"
 parser=MyHTMLParser()
-for i in range(1):
+for i in range(22):
 	if i<10:
 		url1=url+"0"+str(i)+".sgm"
 		
@@ -213,7 +242,8 @@ for i in range(1):
 	raw = response.read().decode(codec,'replace')
 	
 	parser.feed(raw)
-	print(len(parser.articleList))
+	
+	"""
 for article in parser.articleList:
 	print("TOPICS:")
 	for topic in article.topics:
@@ -223,7 +253,7 @@ for article in parser.articleList:
 		print (place+"\n")
 
 	print(article.body)
-	
+"""
 
 run = corpus()
 

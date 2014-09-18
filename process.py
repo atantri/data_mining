@@ -141,7 +141,7 @@ class corpus:
 				
 					
 				for dim in art.featureVector:
-					f.write(str(dim))
+					f.write(str(dim)+" ")
 						
 				#print("")
 				f.write("\n")

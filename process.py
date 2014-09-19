@@ -1,14 +1,15 @@
-import urllib.request
+import urllib
 import nltk
 import math
 from nltk.corpus import stopwords
-from html.parser import HTMLParser
+from HTMLParser import HTMLParser
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from nltk.stem.lancaster import LancasterStemmer
 import operator
 import collections
 from collections import OrderedDict
+#Authors:Aneesh Tantri,Chandhan DS
 class global_word_attributes:
 	"""
 	Count here holds the number of articles with
@@ -121,18 +122,22 @@ class corpus:
 			print(key+" "+str(value.wrd_count))
 		try:
 			f=open('featureVector','w')
+			f2=open('featureVectorSimple','w')
 			for art in self.list_articles:#loop through all articles
 				
 				for t in art.topics:#print class labels
 					#print(t,end=" ")
 					f.write(t+",")
+					f2.write(t+",")
 				#print(";",end="")
 				f.write(";")
 				for p in art.places:
 					#print(p,end=" ")
 					f.write(p+",")
+					f2.write(p+",")
 				#print(art.id,end="")
 				f.write(art.id+" ")
+				f2.write(art.id+" ")
 				for (word,value) in self.sortedDictionary.items():#for every word in the sorted dictionary. this defines the dimensions of the feature vector
 					if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
 						art.featureVector.append(art.words[word].wrd_count)
@@ -142,9 +147,12 @@ class corpus:
 					
 				for dim in art.featureVector:
 					f.write(str(dim)+" ")
+				for word in art.words:
+					f2.write(word+":"+str(art.words[word].wrd_count)+" ")
 						
 				#print("")
-				f.write("\n")
+				f.write("\n\n")
+				f2.write("\n\n")
 		except BaseException:
 			print("Couldn't open file for writing")
 		
@@ -237,9 +245,9 @@ for i in range(22):
 		url1=url+str(i)+".sgm"
 		
 		
-	response=urllib.request.urlopen(url1)
-	codec = response.info().get_param('charset', 'utf-8')
-	raw = response.read().decode(codec,'replace')
+	response=urllib.urlopen(url1)
+	
+	raw = response.read().decode('utf-8','replace')
 	
 	parser.feed(raw)
 	

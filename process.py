@@ -18,6 +18,7 @@ class global_word_attributes:
 	def __init__(self, count,wc, idf, tf_idf):
 		self.art_count = count
 		self.idf = idf 
+		self.tf=0
 		self.tf_idf = tf_idf
 		self.wrd_count=wc#added this to store global count
 
@@ -42,7 +43,8 @@ class corpus:
 		self.list_articles = []
 		self.raw_dictionary ={}
 		self.sortedDictionary=OrderedDict()
-		self.max=0
+		self.tfIdfDict=OrderedDict()
+		self.globalWordCount=0
 	def is_stop_word(self, word):
 		"""
 		Returns true if the word is a stop word
@@ -73,8 +75,7 @@ class corpus:
 			word = word.lower()
 			if(False == self.is_stop_word(word) and word.isnumeric()==False):
 				s_word = stemmer.stem(word)
-				if(self.max<len(s_word)):
-					self.max=len(s_word)
+				
 			#	s_word = word
 			## it is not a stop word, check if the word
 			## is already part of the article dictionary.
@@ -82,16 +83,19 @@ class corpus:
 			## If you are adding check if it is part of 
 			## the big corpus, if yes increment the count
 			## of number of articles with that word.
+				self.globalWordCount+=1
 				new_art.doc_len = new_art.doc_len + 1
 				if(s_word in article_dic):
 					article_dic[s_word].wrd_count+=1
 					global_dic[s_word].wrd_count+=1
 				else:
 					article_dic[s_word] = local_word_attributes(1)
+					
 					if (s_word in global_dic):
 						global_dic[s_word].art_count+=1
+						global_dic[s_word].wrd_count+=1
 					else:
-						 global_dic[s_word] = global_word_attributes(1,1, 0, 0)
+						 global_dic[s_word] = global_word_attributes(1,1, 1, 0)
 		
 
 
@@ -100,12 +104,15 @@ class corpus:
 		for raw_art in self.list_articles:
 		#Create the dictionary for the given article and calculate term frequency.
 			self.parse_raw_data(raw_art)
-			raw_art.term_freq()
-		self.inverse_document_freq()
+			#raw_art.term_freq(self.globalWordCount)
+		
+		self.calcTfIdf()
+		
 
 	def filterWords(self):
 		global_dic=self.raw_dictionary
 		self.sortedDictionary=OrderedDict(sorted(global_dic.items(),key=lambda x:x[1].wrd_count))#returns a sorted global dictionary sorted by the frequencies
+		self.tfIdfDict=OrderedDict(sorted(global_dic.items(),key=lambda x:x[1].tf_idf))
 		length=len(self.sortedDictionary)*95.5/100## eliminate bottom and top 1%
 		
 		i=0
@@ -116,53 +123,87 @@ class corpus:
 			if(i>=length):
 				break
 		self.sortedDictionary.popitem()
+		i=0
+		for (key,value) in self.tfIdfDict.items():
+			self.tfIdfDict.popitem(last=False)#delete from beginning
+			
+			i+=1
+			if(i>=length):
+				break
+		self.tfIdfDict.popitem()
 		print("Length of feature vector(Number of dimensions i.e number of words)="+str(len(self.sortedDictionary)))#seems to be a bit high, we need to stem
 		print("Words chosen (stemmed) followed by the count of each word:")
 		for (key,value) in self.sortedDictionary.items():
 			print(key+" "+str(value.wrd_count))
+		print("Length of tf idf feature vector(Number of dimensions i.e number of words)="+str(len(self.tfIdfDict)))#seems to be a bit high, we need to stem
+		print("Words chosen (stemmed) followed by the count of each word:")
+		for (key,value) in self.tfIdfDict.items():
+			print(key+" "+str(value.wrd_count))
 		try:
 			f=open('featureVector','w')
 			f2=open('featureVectorSimple','w')
+			f3=open('featureVectortfidf','w')
+			print("a");
 			for art in self.list_articles:#loop through all articles
 				
 				for t in art.topics:#print class labels
 					#print(t,end=" ")
 					f.write(t+",")
 					f2.write(t+",")
+					f3.write(t+",")
 				#print(";",end="")
 				f.write(";")
+				f2.write(";")
+				f3.write(";")
 				for p in art.places:
 					#print(p,end=" ")
 					f.write(p+",")
 					f2.write(p+",")
+					f3.write(p+",")
 				#print(art.id,end="")
 				f.write(art.id+" ")
 				f2.write(art.id+" ")
+				f3.write(art.id+" ")
 				for (word,value) in self.sortedDictionary.items():#for every word in the sorted dictionary. this defines the dimensions of the feature vector
 					if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
 						art.featureVector.append(art.words[word].wrd_count)
+						f.write(str(art.words[word].wrd_count)+" ")
+						#print(str(art.words[word].term_fre)+" "+str(value.idf));
 					else:
 						art.featureVector.append(0)
+						f.write(str(0)+" ")
 				
-					
-				for dim in art.featureVector:
-					f.write(str(dim)+" ")
+				for (word,value) in self.tfIdfDict.items():#for every word in the sorted dictionary. this defines the dimensions of the feature vector
+					if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
+						
+						art.tfidfFeatureVector.append(value.tf_idf)
+						f3.write(str(value.tf_idf)+" ")
+						#print(str(art.words[word].term_fre)+" "+str(value.idf));
+					else:
+						art.tfidfFeatureVector.append(0)
+						f3.write(str(0)+" ")
+				#for dim in art.featureVector:
+				#	f.write(str(dim)+" ")
 				for word in art.words:
 					f2.write(word+":"+str(art.words[word].wrd_count)+" ")
-						
+				#for dim in art.tfidfFeatureVector:
+				#	f3.write(str(dim)+" ")
 				#print("")
 				f.write("\n\n")
 				f2.write("\n\n")
-		except BaseException:
-			print("Couldn't open file for writing")
+				f3.write("\n\n")
+		except BaseException as e:
+			print(e)
 		
-	def inverse_document_freq(self):
+	def calcTfIdf(self):
         #Calculate IDF for the entire corpus.
         #IDF = log(Total number of documents / Number of documents with term t in it).
 		number_of_documents = len(self.list_articles)
 		# Number of elemets in the list gives the number of articles
 		for key, value in self.raw_dictionary.items():
-			value.idf = math.log(number_of_documents/value.art_count)
+			value.idf = math.log(float(number_of_documents)/value.art_count)
+			value.tf=float(value.wrd_count)/self.globalWordCount
+			value.tf_idf=float(value.idf)*value.tf
 
 		    
 
@@ -179,14 +220,9 @@ class Article:
 		self.words = {}
 		self.doc_len = 0
 		self.featureVector=[]#stores final feature vector
+		self.tfidfFeatureVector=[]#tf-idf feature vector
 		self.id=""
-
-	def term_freq(self):
-	#Calculate the term frequency for each word in the dictionary
-	#TF(t) = (Number of times term t appears in a document) 
-	#          / (Total number of terms in the document).
-		for key, value in self.words.items():
-			value.term_fre = value.wrd_count/self.doc_len
+			
 
 
 class MyHTMLParser(HTMLParser):

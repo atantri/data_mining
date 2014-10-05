@@ -149,7 +149,7 @@ class corpus:
 		try:
 			f=open('featureVector','w')
 			f2=open('featureVectorSimple','w')
-			f3=open('featureVectortfidf.tab','w')
+			f3=open('featureVectortfidf','w')
 			
 			
 			

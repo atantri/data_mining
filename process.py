@@ -1,6 +1,7 @@
 import urllib
 import nltk
 import math
+import Orange
 from nltk.corpus import stopwords
 from HTMLParser import HTMLParser
 from nltk.tokenize import RegexpTokenizer
@@ -9,6 +10,7 @@ from nltk.stem.lancaster import LancasterStemmer
 import operator
 import collections
 from collections import OrderedDict
+from sets import Set
 #Authors:Aneesh Tantri,Chandhan DS
 class global_word_attributes:
 	"""
@@ -45,6 +47,9 @@ class corpus:
 		self.sortedDictionary=OrderedDict()
 		self.tfIdfDict=OrderedDict()
 		self.globalWordCount=0
+		self.topicsList=[]
+		self.placesList=[]
+		
 	def is_stop_word(self, word):
 		"""
 		Returns true if the word is a stop word
@@ -61,8 +66,10 @@ class corpus:
 			return True 
 
 
-	def get_raw_data(self, lis):
-		self.list_articles = lis;
+	def get_raw_data(self, parser):
+		self.list_articles = parser.articleList;
+		self.topicsList=parser.topicsList;
+		self.placesList=parser.placesList
 
 	def parse_raw_data(self, new_art):
 		tokenizer = RegexpTokenizer(r'\w+')
@@ -95,7 +102,7 @@ class corpus:
 						global_dic[s_word].art_count+=1
 						global_dic[s_word].wrd_count+=1
 					else:
-						 global_dic[s_word] = global_word_attributes(1,1, 1, 0)
+						global_dic[s_word] = global_word_attributes(1,1, 1, 0)
 		
 
 
@@ -142,10 +149,28 @@ class corpus:
 		try:
 			f=open('featureVector','w')
 			f2=open('featureVectorSimple','w')
-			f3=open('featureVectortfidf','w')
-			print("a");
+			f3=open('featureVectortfidf.tab','w')
+			
+			
+			
+			
+			
+			
 			for art in self.list_articles:#loop through all articles
 				
+				
+				
+				
+				for t in self.topicsList:
+					if(t in art.topics):
+						art.topicsMap[t]=1
+					else:
+						art.topicsMap[t]=0
+				for p in self.placesList:
+					if p in art.places:
+						art.placesMap[t]=1
+					else:
+						art.placesMap[t]=0
 				for t in art.topics:#print class labels
 					#print(t,end=" ")
 					f.write(t+",")
@@ -177,11 +202,11 @@ class corpus:
 					if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
 						
 						art.tfidfFeatureVector.append(value.tf_idf)
-						f3.write(str(value.tf_idf)+" ")
+						f3.write(str(value.tf_idf)+"\t")
 						#print(str(art.words[word].term_fre)+" "+str(value.idf));
 					else:
 						art.tfidfFeatureVector.append(0)
-						f3.write(str(0)+" ")
+						f3.write(str(0)+"\t")
 				#for dim in art.featureVector:
 				#	f.write(str(dim)+" ")
 				for word in art.words:
@@ -191,7 +216,7 @@ class corpus:
 				#print("")
 				f.write("\n\n")
 				f2.write("\n\n")
-				f3.write("\n\n")
+				f3.write("\n")
 		except BaseException as e:
 			print(e)
 		
@@ -222,7 +247,8 @@ class Article:
 		self.featureVector=[]#stores final feature vector
 		self.tfidfFeatureVector=[]#tf-idf feature vector
 		self.id=""
-			
+		self.topicsMap=OrderedDict()
+		self.placesMap=OrderedDict()
 
 
 class MyHTMLParser(HTMLParser):
@@ -234,6 +260,8 @@ class MyHTMLParser(HTMLParser):
 		self.bodyTag=0;
 		self.ListTag=0;
 		self.articleList=[]
+		self.topicsList=[]
+		self.placesList=[]
 	def handle_starttag(self, tag, attrs):
 		
 		if tag.upper()=="REUTERS":
@@ -265,15 +293,18 @@ class MyHTMLParser(HTMLParser):
 
 	def handle_data(self, data):
 		if self.topicTag==1 and self.ListTag==1:
-			
+			if data not in self.topicsList:
+				self.topicsList.append(data)
 			self.article.topics.append(data);
 		elif self.bodyTag==1:
 			self.article.body=data;
 		elif self.placesTag==1 and self.ListTag==1:
+			if data not in self.placesList:
+				self.placesList.append(data)
 			self.article.places.append(data);
 url = "http://web.cse.ohio-state.edu/~srini/674/public/reuters/reut2-0"
 parser=MyHTMLParser()
-for i in range(22):
+for i in range(1):
 	if i<10:
 		url1=url+"0"+str(i)+".sgm"
 		
@@ -301,9 +332,10 @@ for article in parser.articleList:
 
 run = corpus()
 
-run.get_raw_data(parser.articleList)
+run.get_raw_data(parser)
 run.build_document_corpus()
 run.filterWords()#This will filter the top 1% and bottom 1 % from the global dictionary based on frequencies
+
 """
 for (word,obj) in run.sortedDictionary.items():
 	print(word+" "+str(obj.wrd_count));

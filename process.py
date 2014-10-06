@@ -10,7 +10,6 @@ from nltk.stem.lancaster import LancasterStemmer
 import operator
 import collections
 from collections import OrderedDict
-from sets import Set
 #Authors:Aneesh Tantri,Chandhan DS
 class global_word_attributes:
 	"""
@@ -49,7 +48,8 @@ class corpus:
 		self.globalWordCount=0
 		self.topicsList=[]
 		self.placesList=[]
-		
+		self.articleTest=[]
+		self.articleTrain=[]
 	def is_stop_word(self, word):
 		"""
 		Returns true if the word is a stop word
@@ -117,12 +117,14 @@ class corpus:
 		
 	def writeVector(self,ftrain,ftest):
 		for art in self.list_articles:#loop through all articles
+			
+			feature=art.featureVector
 			if(not art.topics):
 				f=ftest
-				feature=art.featureTest
+				self.articleTest.append(art)
 			else:
 				f=ftrain
-				feature=art.featureVector
+				self.articleTrain.append(art)
 			for t in self.topicsList:
 				
 				if(t in art.topics):
@@ -168,12 +170,13 @@ class corpus:
 		
 	def writeVectorTfIdf(self,ftrain,ftest):
 		for art in self.list_articles:#loop through all articles
+			feature=art.tfidfFeatureVector
 			if(not art.topics):
 				f=ftest
-				feature=art.tfIdfTest
+				
 			else:
 				f=ftrain
-				feature=art.tfidfFeatureVector
+				
 			for t in self.topicsList:
 				
 				if(t in art.topics):
@@ -262,13 +265,7 @@ class corpus:
 			value.tf=float(value.wrd_count)/self.globalWordCount
 			value.tf_idf=float(value.idf)*value.tf
 
-		    
 
-
-
-
-
-		
 class Article:	
 	def __init__(self):
 		self.topics=[];
@@ -368,7 +365,6 @@ run = corpus()
 run.get_raw_data(parser)
 run.build_document_corpus()
 run.filterWords()#This will filter the top 1% and bottom 1 % from the global dictionary based on frequencies
-
 """
 for (word,obj) in run.sortedDictionary.items():
 	print(word+" "+str(obj.wrd_count));

@@ -115,7 +115,101 @@ class corpus:
 		
 		self.calcTfIdf()
 		
+	def writeVector(self,ftrain,ftest):
+		for art in self.list_articles:#loop through all articles
+			if(not art.topics):
+				f=ftest
+				feature=art.featureTest
+			else:
+				f=ftrain
+				feature=art.featureVector
+			for t in self.topicsList:
+				
+				if(t in art.topics):
+					art.topicsMap[t]=1
+				else:
+					art.topicsMap[t]=0
+			for p in self.placesList:
+				if p in art.places:
+					art.placesMap[t]=1
+				else:
+					art.placesMap[t]=0
+			for t in art.topics:#print class labels
+				#print(t,end=" ")
+				f.write(t+",")
+				
+				
+			#print(";",end="")
+			f.write(";")
+			
+			for p in art.places:
+				#print(p,end=" ")
+				f.write(p+",")
 
+			#print(art.id,end="")
+			f.write(art.id+"\t")
+			
+					
+			
+			
+			for (word,value) in self.sortedDictionary.items():#for every word in the sorted dictionary. this defines the dimensions of the feature vector
+				if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
+					feature.append(art.words[word].wrd_count)
+					
+					
+					f.write(str(art.words[word].wrd_count)+"\t")
+					#print(str(art.words[word].term_fre)+" "+str(value.idf));
+				else:
+					feature.append(0)
+					f.write(str(0)+"\t")
+			f.write("\n")
+			
+		
+		
+	def writeVectorTfIdf(self,ftrain,ftest):
+		for art in self.list_articles:#loop through all articles
+			if(not art.topics):
+				f=ftest
+				feature=art.tfIdfTest
+			else:
+				f=ftrain
+				feature=art.tfidfFeatureVector
+			for t in self.topicsList:
+				
+				if(t in art.topics):
+					art.topicsMap[t]=1
+				else:
+					art.topicsMap[t]=0
+			for p in self.placesList:
+				if p in art.places:
+					art.placesMap[t]=1
+				else:
+					art.placesMap[t]=0
+			for t in art.topics:#print class labels
+				#print(t,end=" ")
+				f.write(t+",")
+				
+				
+			#print(";",end="")
+			f.write(";")
+			
+			for p in art.places:
+				#print(p,end=" ")
+				f.write(p+",")
+
+			#print(art.id,end="")
+			f.write(art.id+"\t")
+
+			for (word,value) in self.tfIdfDict.items():#for every word in the sorted dictionary. this defines the dimensions of the feature vector
+				if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
+					
+					feature.append(value.tf_idf)
+					f.write(str(value.tf_idf)+"\t")
+					#print(str(art.words[word].term_fre)+" "+str(value.idf));
+				else:
+					feature.append(0)
+					f.write(str(0)+"\t")
+			f.write("\n")
 	def filterWords(self):
 		global_dic=self.raw_dictionary
 		self.sortedDictionary=OrderedDict(sorted(global_dic.items(),key=lambda x:x[1].wrd_count))#returns a sorted global dictionary sorted by the frequencies
@@ -137,7 +231,7 @@ class corpus:
 			i+=1
 			if(i>=length):
 				break
-		self.tfIdfDict.popitem()
+		self.tfIdfDict.popitem(last=False)
 		print("Length of feature vector(Number of dimensions i.e number of words)="+str(len(self.sortedDictionary)))#seems to be a bit high, we need to stem
 		print("Words chosen (stemmed) followed by the count of each word:")
 		for (key,value) in self.sortedDictionary.items():
@@ -147,76 +241,14 @@ class corpus:
 		for (key,value) in self.tfIdfDict.items():
 			print(key+" "+str(value.wrd_count))
 		try:
-			f=open('featureVector','w')
-			f2=open('featureVectorSimple','w')
-			f3=open('featureVectortfidf','w')
+			f=open('ftrain','w')
 			
+			f3=open('ftrainfidf','w')
+			ftest=open('ftest','w')
+			ftesttfidf=open('ftesttfidf','w')
+			self.writeVector(f,ftest)
+			self.writeVectorTfIdf(f3,ftesttfidf)
 			
-			
-			
-			
-			
-			for art in self.list_articles:#loop through all articles
-				
-				
-				
-				
-				for t in self.topicsList:
-					if(t in art.topics):
-						art.topicsMap[t]=1
-					else:
-						art.topicsMap[t]=0
-				for p in self.placesList:
-					if p in art.places:
-						art.placesMap[t]=1
-					else:
-						art.placesMap[t]=0
-				for t in art.topics:#print class labels
-					#print(t,end=" ")
-					f.write(t+",")
-					f2.write(t+",")
-					f3.write(t+",")
-				#print(";",end="")
-				f.write(";")
-				f2.write(";")
-				f3.write(";")
-				for p in art.places:
-					#print(p,end=" ")
-					f.write(p+",")
-					f2.write(p+",")
-					f3.write(p+",")
-				#print(art.id,end="")
-				f.write(art.id+" ")
-				f2.write(art.id+" ")
-				f3.write(art.id+" ")
-				for (word,value) in self.sortedDictionary.items():#for every word in the sorted dictionary. this defines the dimensions of the feature vector
-					if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
-						art.featureVector.append(art.words[word].wrd_count)
-						f.write(str(art.words[word].wrd_count)+" ")
-						#print(str(art.words[word].term_fre)+" "+str(value.idf));
-					else:
-						art.featureVector.append(0)
-						f.write(str(0)+" ")
-				
-				for (word,value) in self.tfIdfDict.items():#for every word in the sorted dictionary. this defines the dimensions of the feature vector
-					if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
-						
-						art.tfidfFeatureVector.append(value.tf_idf)
-						f3.write(str(value.tf_idf)+"\t")
-						#print(str(art.words[word].term_fre)+" "+str(value.idf));
-					else:
-						art.tfidfFeatureVector.append(0)
-						f3.write(str(0)+"\t")
-				#for dim in art.featureVector:
-				#	f.write(str(dim)+" ")
-				for word in art.words:
-					f2.write(word+":"+str(art.words[word].wrd_count)+" ")
-				#for dim in art.tfidfFeatureVector:
-				#	f3.write(str(dim)+" ")
-				#print("")
-				f.write("\n\n")
-				f2.write("\n\n")
-				f3.write("\n")
 		except BaseException as e:
 			print(e)
 		
@@ -249,7 +281,8 @@ class Article:
 		self.id=""
 		self.topicsMap=OrderedDict()
 		self.placesMap=OrderedDict()
-
+		self.featureTest=[]
+		self.tfIdfTest=[]
 
 class MyHTMLParser(HTMLParser):
 	def __init__(self):

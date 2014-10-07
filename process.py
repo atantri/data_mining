@@ -2,6 +2,10 @@ import urllib
 import nltk
 import math
 import Orange
+import sklearn
+import numpy as np
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import MultinomialNB
 from nltk.corpus import stopwords
 from HTMLParser import HTMLParser
 from nltk.tokenize import RegexpTokenizer
@@ -10,6 +14,7 @@ from nltk.stem.lancaster import LancasterStemmer
 import operator
 import collections
 from collections import OrderedDict
+from sklearn import tree
 #Authors:Aneesh Tantri,Chandhan DS
 class global_word_attributes:
 	"""
@@ -50,6 +55,11 @@ class corpus:
 		self.placesList=[]
 		self.articleTest=[]
 		self.articleTrain=[]
+		self.topicsMap={}
+		self.articleMap={}
+		self.precision=0
+		self.recall=0
+		self.fMeasure=0
 	def is_stop_word(self, word):
 		"""
 		Returns true if the word is a stop word
@@ -64,12 +74,111 @@ class corpus:
 			return False
 		else:
 			return True 
-
-
+	def knnClassify(self):
+		X=[]
+		Y=[]
+		X_test=[]
+		
+		for art in self.articleTrain:
+			X.append(art.tfidfFeatureVector)
+			
+			yEl=[];
+			i=0
+			for t in self.topicsList:
+				
+				if(t in art.topics):
+					yEl.append(i)
+				i+=1
+			
+			Y.append(yEl)
+			
+		for art in self.articleTest:
+			X_test.append(art.tfidfFeatureVector)
+		
+		knc=KNeighborsClassifier(n_neighbors=3)
+		
+		X_test=np.array(X_test)
+		#print(X)
+		
+		knc.fit(np.array(X),Y)
+		Y_pred=knc.predict(np.array(X))
+		f=open('resultKNN','w')
+		i=0
+		correct=0
+		resultTopicsMap={}
+		for yRes in Y_pred:
+			f.write(self.articleTrain[i].Id+"\t")
+			for t in self.articleTrain[i].topics:
+				f.write(t+"\t")
+			f.write("vs\t")
+			
+			j=0
+			if(len(yRes)==0):
+				print "Wrong"
+			
+			for j in range(len(yRes)):
+				predTop=self.topicsList[yRes[j]]
+				if(predTop not in resultTopicsMap):
+					resultTopicsMap[predTop]=[]
+				resultTopicsMap[predTop].append(self.articleTrain[i])
+				f.write(predTop+"\t")
+				j+=1
+			
+			"""
+			for t in self.topicsList:
+				
+				b=0;
+				if(yRes[j]==1):
+					b=1
+					f.write(t+"\t")
+					
+						
+				
+				if(b==0):
+					print "missing"
+				j+=1
+			
+			"""
+			i+=1	
+			f.write("\n")
+		fp=0
+		fn=0
+		tp=0
+		tn=0
+		n=len(self.list_articles)
+		ctr=0
+		
+		for topic in self.topicsMap:
+			artList=self.topicsMap[topic]
+			tfp=0
+			tfn=0
+			ttp=0
+			if(topic in resultTopicsMap):
+				
+				resArtList=resultTopicsMap[topic]
+			for art in artList:
+				if art in resArtList:
+					ttp+=1
+					tp+=1;
+				else:
+					tfn+=1
+					fn+=1;
+			for art in resArtList:
+				if art not in artList:
+					tfp+=1
+					fp+=1;
+			tn+=n-(ttp+tfn+tfp)
+			
+		self.precision=float(tp)/(tp+fp)
+		self.recall=float(tp)/(tp+fn)
+		self.fMeasure=2*self.precision*self.recall/(self.precision+self.recall)
+		self.accuracy=float(tp+tn)/(tp+tn+fp+fn)
+		print "Accuracy="+str(self.accuracy)+" Precision= "+str(self.precision)+" Recall= "+str(self.recall)+" F Measure= "+str(self.fMeasure)
 	def get_raw_data(self, parser):
 		self.list_articles = parser.articleList;
 		self.topicsList=parser.topicsList;
 		self.placesList=parser.placesList
+		self.articleMap=parser.articleMap
 
 	def parse_raw_data(self, new_art):
 		tokenizer = RegexpTokenizer(r'\w+')
@@ -111,6 +220,11 @@ class corpus:
 		for raw_art in self.list_articles:
 		#Create the dictionary for the given article and calculate term frequency.
 			self.parse_raw_data(raw_art)
+			for t in raw_art.topics:
+				if t not in self.topicsMap:
+					self.topicsMap[t]=[]
+				self.topicsMap[t].append(raw_art)
+				
 			#raw_art.term_freq(self.globalWordCount)
 		
 		self.calcTfIdf()
@@ -125,17 +239,20 @@ class corpus:
 			else:
 				f=ftrain
 				self.articleTrain.append(art)
+			"""
 			for t in self.topicsList:
 				
 				if(t in art.topics):
 					art.topicsMap[t]=1
 				else:
 					art.topicsMap[t]=0
+			
 			for p in self.placesList:
 				if p in art.places:
 					art.placesMap[t]=1
 				else:
 					art.placesMap[t]=0
+			"""
 			for t in art.topics:#print class labels
 				#print(t,end=" ")
 				f.write(t+",")
@@ -149,7 +266,7 @@ class corpus:
 				f.write(p+",")
 
 			#print(art.id,end="")
-			f.write(art.id+"\t")
+			f.write(art.Id+"\t")
 			
 					
 			
@@ -177,17 +294,7 @@ class corpus:
 			else:
 				f=ftrain
 				
-			for t in self.topicsList:
-				
-				if(t in art.topics):
-					art.topicsMap[t]=1
-				else:
-					art.topicsMap[t]=0
-			for p in self.placesList:
-				if p in art.places:
-					art.placesMap[t]=1
-				else:
-					art.placesMap[t]=0
+			
 			for t in art.topics:#print class labels
 				#print(t,end=" ")
 				f.write(t+",")
@@ -201,7 +308,7 @@ class corpus:
 				f.write(p+",")
 
 			#print(art.id,end="")
-			f.write(art.id+"\t")
+			f.write(art.Id+"\t")
 
 			for (word,value) in self.tfIdfDict.items():#for every word in the sorted dictionary. this defines the dimensions of the feature vector
 				if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
@@ -275,9 +382,9 @@ class Article:
 		self.doc_len = 0
 		self.featureVector=[]#stores final feature vector
 		self.tfidfFeatureVector=[]#tf-idf feature vector
-		self.id=""
-		self.topicsMap=OrderedDict()
-		self.placesMap=OrderedDict()
+		self.Id=""
+		#self.topicsMap=OrderedDict()
+		#self.placesMap=OrderedDict()
 		self.featureTest=[]
 		self.tfIdfTest=[]
 
@@ -292,15 +399,17 @@ class MyHTMLParser(HTMLParser):
 		self.articleList=[]
 		self.topicsList=[]
 		self.placesList=[]
+		self.articleMap={}
 	def handle_starttag(self, tag, attrs):
 		
 		if tag.upper()=="REUTERS":
+			self.article=Article()
 			for key,value in attrs:
-				if key.lower()=="oldid":
-					self.article.id=value
+				if key.lower()=="newid":
+					self.article.Id=value
 
 		if tag.upper()=="TOPICS":
-			self.article=Article()
+			
 			self.topicTag=1;
 		elif tag.upper()=="BODY":
 			self.bodyTag=1;
@@ -320,6 +429,8 @@ class MyHTMLParser(HTMLParser):
 			self.placesTag=0;
 		elif tag.upper()=="D":
 			self.ListTag=0;
+		elif tag.upper()=="REUTERS":
+			self.articleMap[self.article.Id]=self.article
 
 	def handle_data(self, data):
 		if self.topicTag==1 and self.ListTag==1:
@@ -365,6 +476,7 @@ run = corpus()
 run.get_raw_data(parser)
 run.build_document_corpus()
 run.filterWords()#This will filter the top 1% and bottom 1 % from the global dictionary based on frequencies
+run.knnClassify()
 """
 for (word,obj) in run.sortedDictionary.items():
 	print(word+" "+str(obj.wrd_count));

@@ -74,7 +74,47 @@ class corpus:
 			return False
 		else:
 			return True 
-	def knnClassify(self):
+	def calcCS(self,resultTopicsMap,method):
+		fp=0
+		fn=0
+		tp=0
+		tn=0
+		n=len(self.list_articles)
+		
+		
+		for topic in self.topicsMap:
+			artList=self.topicsMap[topic]
+			tfp=0
+			tfn=0
+			ttp=0
+			resArtList=None
+			if(topic in resultTopicsMap):
+				
+				resArtList=resultTopicsMap[topic]
+			for art in artList:
+				if resArtList is None:
+					break
+				if art in resArtList:
+					ttp+=1
+					tp+=1;
+				else:
+					tfn+=1
+					fn+=1;
+			if resArtList is not None:
+				
+				for art in resArtList:
+					if art not in artList:
+						tfp+=1
+						fp+=1;
+			tn+=n-(ttp+tfn+tfp)
+			
+		self.precision=float(tp)/(tp+fp)
+		self.recall=float(tp)/(tp+fn)
+		self.fMeasure=2*self.precision*self.recall/(self.precision+self.recall)
+		self.accuracy=float(tp+tn)/(tp+tn+fp+fn)
+		print method+": Accuracy="+str(self.accuracy)+" Precision= "+str(self.precision)+" Recall= "+str(self.recall)+" F Measure= "+str(self.fMeasure)
+		
+	def classify(self,classifier,method):
 		X=[]
 		Y=[]
 		X_test=[]
@@ -95,14 +135,14 @@ class corpus:
 		for art in self.articleTest:
 			X_test.append(art.tfidfFeatureVector)
 		
-		knc=KNeighborsClassifier(n_neighbors=3)
+		#knc=KNeighborsClassifier(n_neighbors=3)
 		
 		X_test=np.array(X_test)
 		#print(X)
 		
-		knc.fit(np.array(X),Y)
-		Y_pred=knc.predict(np.array(X))
-		f=open('resultKNN','w')
+		classifier.fit(np.array(X),Y)
+		Y_pred=classifier.predict(np.array(X))
+		f=open('result'+method,'w')
 		i=0
 		correct=0
 		resultTopicsMap={}
@@ -141,39 +181,9 @@ class corpus:
 			"""
 			i+=1	
 			f.write("\n")
-		fp=0
-		fn=0
-		tp=0
-		tn=0
-		n=len(self.list_articles)
-		ctr=0
+		self.calcCS(resultTopicsMap,method)
+	
 		
-		for topic in self.topicsMap:
-			artList=self.topicsMap[topic]
-			tfp=0
-			tfn=0
-			ttp=0
-			if(topic in resultTopicsMap):
-				
-				resArtList=resultTopicsMap[topic]
-			for art in artList:
-				if art in resArtList:
-					ttp+=1
-					tp+=1;
-				else:
-					tfn+=1
-					fn+=1;
-			for art in resArtList:
-				if art not in artList:
-					tfp+=1
-					fp+=1;
-			tn+=n-(ttp+tfn+tfp)
-			
-		self.precision=float(tp)/(tp+fp)
-		self.recall=float(tp)/(tp+fn)
-		self.fMeasure=2*self.precision*self.recall/(self.precision+self.recall)
-		self.accuracy=float(tp+tn)/(tp+tn+fp+fn)
-		print "Accuracy="+str(self.accuracy)+" Precision= "+str(self.precision)+" Recall= "+str(self.recall)+" F Measure= "+str(self.fMeasure)
 	def get_raw_data(self, parser):
 		self.list_articles = parser.articleList;
 		self.topicsList=parser.topicsList;
@@ -342,14 +352,17 @@ class corpus:
 			if(i>=length):
 				break
 		self.tfIdfDict.popitem(last=False)
+		"""
 		print("Length of feature vector(Number of dimensions i.e number of words)="+str(len(self.sortedDictionary)))#seems to be a bit high, we need to stem
 		print("Words chosen (stemmed) followed by the count of each word:")
 		for (key,value) in self.sortedDictionary.items():
 			print(key+" "+str(value.wrd_count))
 		print("Length of tf idf feature vector(Number of dimensions i.e number of words)="+str(len(self.tfIdfDict)))#seems to be a bit high, we need to stem
 		print("Words chosen (stemmed) followed by the count of each word:")
+		
 		for (key,value) in self.tfIdfDict.items():
 			print(key+" "+str(value.wrd_count))
+		"""
 		try:
 			f=open('ftrain','w')
 			
@@ -445,7 +458,7 @@ class MyHTMLParser(HTMLParser):
 			self.article.places.append(data);
 url = "http://web.cse.ohio-state.edu/~srini/674/public/reuters/reut2-0"
 parser=MyHTMLParser()
-for i in range(1):
+for i in range(22):
 	if i<10:
 		url1=url+"0"+str(i)+".sgm"
 		
@@ -476,7 +489,8 @@ run = corpus()
 run.get_raw_data(parser)
 run.build_document_corpus()
 run.filterWords()#This will filter the top 1% and bottom 1 % from the global dictionary based on frequencies
-run.knnClassify()
+run.classify(KNeighborsClassifier(n_neighbors=3),"KNN")
+run.classify(tree.DecisionTreeClassifier(),"Decision Tree")
 """
 for (word,obj) in run.sortedDictionary.items():
 	print(word+" "+str(obj.wrd_count));

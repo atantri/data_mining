@@ -60,6 +60,8 @@ class corpus:
 		self.precision=0
 		self.recall=0
 		self.fMeasure=0
+		self.topicsTestMap={} #testing from articles with topics
+		self.articleTrainTest=[]
 	def is_stop_word(self, word):
 		"""
 		Returns true if the word is a stop word
@@ -79,76 +81,76 @@ class corpus:
 		fn=0
 		tp=0
 		tn=0
-		n=len(self.list_articles)
+		n=len(self.articleTrainTest)
 		
 		
-		for topic in self.topicsMap:
-			artList=self.topicsMap[topic]
+		for topic in self.topicsTestMap:
+			artList=self.topicsTestMap[topic]
 			tfp=0
 			tfn=0
 			ttp=0
-			resArtList=None
+			resArtList=[]
 			if(topic in resultTopicsMap):
 				
 				resArtList=resultTopicsMap[topic]
 			for art in artList:
-				if resArtList is None:
-					break
 				if art in resArtList:
 					ttp+=1
 					tp+=1;
 				else:
 					tfn+=1
 					fn+=1;
-			if resArtList is not None:
-				
-				for art in resArtList:
-					if art not in artList:
-						tfp+=1
-						fp+=1;
+			for art in resArtList:
+				if art not in artList:
+					tfp+=1
+					fp+=1;
 			tn+=n-(ttp+tfn+tfp)
 			
 		self.precision=float(tp)/(tp+fp)
 		self.recall=float(tp)/(tp+fn)
 		self.fMeasure=2*self.precision*self.recall/(self.precision+self.recall)
-		self.accuracy=float(tp+tn)/(tp+tn+fp+fn)
+		self.accuracy=float(tp+0.8*tn)/(tp+tn+fp+fn)
 		print method+": Accuracy="+str(self.accuracy)+" Precision= "+str(self.precision)+" Recall= "+str(self.recall)+" F Measure= "+str(self.fMeasure)
-		
-	def classify(self,classifier,method):
-		X=[]
-		Y=[]
-		X_test=[]
-		
+	def genTopicTestMap(self,X,Y,X_test):
+		n=0
+		size=0.8*len(self.topicsMap)
 		for art in self.articleTrain:
-			X.append(art.tfidfFeatureVector)
-			
-			yEl=[];
-			i=0
-			for t in self.topicsList:
+			if(n<size):
+				X.append(art.tfidfFeatureVector)
 				
-				if(t in art.topics):
-					yEl.append(i)
-				i+=1
-			
-			Y.append(yEl)
-			
-		for art in self.articleTest:
-			X_test.append(art.tfidfFeatureVector)
+				
+				yEl=[];
+				i=0
+				for t in self.topicsList:
+					
+					if(t in art.topics):
+						yEl.append(i)
+					i+=1
+				
+				Y.append(yEl)
+			else:
+				for t in art.topics:
+					if t not in self.topicsTestMap:
+						self.topicsTestMap[t]=[]
+					self.topicsTestMap[t].append(art)
+				X_test.append(art.tfidfFeatureVector)
+				self.articleTrainTest.append(art)
+			n+=1
 		
-		#knc=KNeighborsClassifier(n_neighbors=3)
+	def classify(self,classifier,method,X,Y,X_test):
 		
 		X_test=np.array(X_test)
-		#print(X)
+		
 		
 		classifier.fit(np.array(X),Y)
-		Y_pred=classifier.predict(np.array(X))
+		Y_pred=classifier.predict(X_test)
 		f=open('result'+method,'w')
 		i=0
 		correct=0
 		resultTopicsMap={}
 		for yRes in Y_pred:
-			f.write(self.articleTrain[i].Id+"\t")
-			for t in self.articleTrain[i].topics:
+			f.write(self.articleTrainTest[i].Id+"\t")
+			for t in self.articleTrainTest[i].topics:
 				f.write(t+"\t")
 			f.write("vs\t")
 			
@@ -160,7 +162,7 @@ class corpus:
 				predTop=self.topicsList[yRes[j]]
 				if(predTop not in resultTopicsMap):
 					resultTopicsMap[predTop]=[]
-				resultTopicsMap[predTop].append(self.articleTrain[i])
+				resultTopicsMap[predTop].append(self.articleTrainTest[i])
 				f.write(predTop+"\t")
 				j+=1
 			
@@ -489,8 +491,12 @@ run = corpus()
 run.get_raw_data(parser)
 run.build_document_corpus()
 run.filterWords()#This will filter the top 1% and bottom 1 % from the global dictionary based on frequencies
-run.classify(KNeighborsClassifier(n_neighbors=3),"KNN")
-run.classify(tree.DecisionTreeClassifier(),"Decision Tree")
+X=[]
+Y=[]
+X_test=[]
+run.genTopicTestMap(X,Y,X_test)
+run.classify(KNeighborsClassifier(n_neighbors=3),"KNN",X,Y,X_test)
+run.classify(tree.DecisionTreeClassifier(),"Decision Tree",X,Y,X_test)
 """
 for (word,obj) in run.sortedDictionary.items():
 	print(word+" "+str(obj.wrd_count));

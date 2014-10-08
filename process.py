@@ -15,6 +15,9 @@ import operator
 import collections
 from collections import OrderedDict
 from sklearn import tree
+import timeit
+from timeit import default_timer
+
 #Authors:Aneesh Tantri,Chandhan DS
 class global_word_attributes:
 	"""
@@ -62,6 +65,7 @@ class corpus:
 		self.fMeasure=0
 		self.topicsTestMap={} #testing from articles with topics
 		self.articleTrainTest=[]
+		self.pre=0
 	def is_stop_word(self, word):
 		"""
 		Returns true if the word is a stop word
@@ -81,43 +85,65 @@ class corpus:
 		fn=0
 		tp=0
 		tn=0
+		bfp=0
+		bfn=0
+		btp=0
+		btn=0
 		n=len(self.articleTrainTest)
 		
-		
+		artList=self.topicsTestMap["earn"]
+		for art in self.articleTrainTest:
+			if art in artList:
+				btp+=1;
+			else:
+				bfp+=1
+			
 		for topic in self.topicsTestMap:
 			artList=self.topicsTestMap[topic]
-			tfp=0
-			tfn=0
-			ttp=0
+			tempPred=0
+			
 			resArtList=[]
+			
+			if topic !="earn":
+				bfn+=len(artList)
+				btn+=n-len(artList)
+			
 			if(topic in resultTopicsMap):
 				
 				resArtList=resultTopicsMap[topic]
 			for art in artList:
 				if art in resArtList:
-					ttp+=1
+					tempPred+=1
 					tp+=1;
 				else:
-					tfn+=1
+					tempPred+=1
 					fn+=1;
+				
+			
 			for art in resArtList:
 				if art not in artList:
-					tfp+=1
+					tempPred+=1
 					fp+=1;
-			tn+=n-(ttp+tfn+tfp)
+			tn+=n-tempPred
+			
 			
 		self.precision=float(tp)/(tp+fp)
 		self.recall=float(tp)/(tp+fn)
 		self.fMeasure=2*self.precision*self.recall/(self.precision+self.recall)
 		self.accuracy=float(tp+0.8*tn)/(tp+tn+fp+fn)
+		bPrec=float(btp)/(btp+bfp)
+		bRec=float(btp)/(btp+bfn)
+		bFmeasure=2*bPrec*bRec/(bRec+bPrec)
+		bAcc=(btp+0.8*btn)/(btp+btn*bfp+bfn)
 		print method+": Accuracy="+str(self.accuracy)+" Precision= "+str(self.precision)+" Recall= "+str(self.recall)+" F Measure= "+str(self.fMeasure)
+		print "\nBaseline guess for topic as earn: Accuracy:"+str(bAcc)+" Precision= "+str(bPrec)+" Recall= "+str(bRec)+" F Measure= "+str(bFmeasure)+"\n\n"
 	def genTopicTestMap(self,X,Y,X_test):
 		n=0
 		size=0.8*len(self.topicsMap)
 		for art in self.articleTrain:
 			if(n<size):
 				X.append(art.tfidfFeatureVector)
-				
+				#X.append(art.featureVector)
 				
 				yEl=[];
 				i=0
@@ -139,11 +165,14 @@ class corpus:
 		
 	def classify(self,classifier,method,X,Y,X_test):
 		
-		X_test=np.array(X_test)
 		
 		
+		start=default_timer()
 		classifier.fit(np.array(X),Y)
-		Y_pred=classifier.predict(X_test)
+		timeClassify=default_timer()-start+self.pre
+		start=default_timer()
+		Y_pred=classifier.predict(np.array(X_test))
+		
 		f=open('result'+method,'w')
 		i=0
 		correct=0
@@ -160,6 +189,9 @@ class corpus:
 			
 			for j in range(len(yRes)):
 				predTop=self.topicsList[yRes[j]]
+				if predTop in self.articleTrainTest[i].topics:
+					correct+=1
+				
 				if(predTop not in resultTopicsMap):
 					resultTopicsMap[predTop]=[]
 				resultTopicsMap[predTop].append(self.articleTrainTest[i])
@@ -183,7 +215,11 @@ class corpus:
 			"""
 			i+=1	
 			f.write("\n")
+		#print "Acc="+str(float(correct)/len(self.articleTrainTest))
+		
 		self.calcCS(resultTopicsMap,method)
+		timePred=default_timer()-start
+		print method+" Offline cost="+str(timeClassify)+" Online Cost= "+str(timePred)
 	
 		
 	def get_raw_data(self, parser):
@@ -193,6 +229,7 @@ class corpus:
 		self.articleMap=parser.articleMap
 
 	def parse_raw_data(self, new_art):
+		self.startClass=default_timer()
 		tokenizer = RegexpTokenizer(r'\w+')
 		tokens = tokenizer.tokenize(new_art.body)
 		stemmer = LancasterStemmer()
@@ -495,7 +532,9 @@ X=[]
 Y=[]
 X_test=[]
 run.genTopicTestMap(X,Y,X_test)
-run.classify(KNeighborsClassifier(n_neighbors=3),"KNN",X,Y,X_test)
+run.pre=default_timer()-run.startClass
+run.classify(KNeighborsClassifier(n_neighbors=15),"KNN",X,Y,X_test)
+
 run.classify(tree.DecisionTreeClassifier(),"Decision Tree",X,Y,X_test)
 """
 for (word,obj) in run.sortedDictionary.items():

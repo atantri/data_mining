@@ -20,6 +20,8 @@ from timeit import default_timer
 import sklearn.cluster as clust
 import random
 from entropy import entropy
+import random
+
 
 
 #Authors:Aneesh Tantri,Chandhan DS
@@ -70,6 +72,67 @@ class corpus:
 		self.topicsTestMap={} #testing from articles with topics
 		self.articleTrainTest=[]
 		self.pre=0
+		self.kMinHash=[];
+		self.simCountList=[];
+	def calcKMinHash(self,k):
+	
+		wordList=[];
+	
+		for (key,value) in self.sortedDictionary.items():
+			wordList.append(key);
+		kMinHash=[[0 for x in xrange(len(self.list_articles))]for x in xrange(k)]
+		
+		for i in range(k):
+			
+			
+			j=0;
+			for art in self.list_articles:
+				
+				
+				oldj=j;
+				for word in wordList:
+					if(art.featureMap[word]>0):
+						kMinHash[i][j]=word;
+						j+=1;
+						break;
+				if(oldj==j):
+					kMinHash[i][j]=0;
+					j+=1;
+			random.shuffle(wordList);	
+		
+		self.kMinHash=kMinHash;
+		self.calcSimHash();
+		
+	
+	def calcSimHash(self):
+		
+		kMinHash=self.kMinHash;
+		
+		f=open("MinHasSim"+str(len(kMinHash)),'w');
+		self.simCountList=[[0 for x in xrange(len(kMinHash[0]))]for x in xrange(len(kMinHash[0]))] ;
+		for hashList in kMinHash:
+			for i in range(len(hashList)):
+				
+				for j in range(i+1,len(hashList)):
+				
+					self.simCountList[i][j]+=(1 if hashList[i]==hashList[j] else 0);
+		f.write(":");
+		for i in range(len(kMinHash[0])):
+			
+			if(i==0):
+				for j in range(i+1,len(kMinHash[0])):
+					f.write(str(j)+",");
+				f.write("\n");
+			f.write(str(i)+":");
+			for j in range(i+1,len(kMinHash[0])):
+				self.simCountList[i][j]/=1.0*(len(kMinHash));
+				f.write(str(self.simCountList[i][j])+",");
+			f.write("\n");
+		f.close();
+					
+	
+	
+
 	def is_stop_word(self, word):
 		"""
 		Returns true if the word is a stop word
@@ -284,7 +347,7 @@ class corpus:
 
 	def writeVector(self,ftrain,ftest):
 		for art in self.list_articles:#loop through all articles
-
+			featureMap=art.featureMap;
 			feature=art.featureVector
 			if(not art.topics):
 				f=ftest
@@ -327,12 +390,13 @@ class corpus:
 			for (word,value) in self.sortedDictionary.items():#for every word in the sorted dictionary. this defines the dimensions of the feature vector
 				if(word in art.words):#if word in the dictionary exists in the article, only then does the vector for the article have a non zero dimension
 					feature.append(art.words[word].wrd_count)
-
+					featureMap[word]=art.words[word].wrd_count;
 
 					f.write(str(art.words[word].wrd_count)+"\t")
 					#print(str(art.words[word].term_fre)+" "+str(value.idf));
 				else:
 					feature.append(0)
+					featureMap[word]=0;
 					f.write(str(0)+"\t")
 			f.write("\n")
 
@@ -443,6 +507,7 @@ class Article:
 		#self.placesMap=OrderedDict()
 		self.featureTest=[]
 		self.tfIdfTest=[]
+		self.featureMap=OrderedDict()
 
 class MyHTMLParser(HTMLParser):
 	def __init__(self):
@@ -535,384 +600,17 @@ run.filterWords()#This will filter the top 1% and bottom 1 % from the global dic
 X=[]
 Y=[]
 X_test=[]
-run.genTopicTestMap(X,Y,X_test)
-run.pre=default_timer()-run.startClass
+#run.genTopicTestMap(X,Y,X_test)
+#run.pre=default_timer()-run.startClass
+k=16
+while(k<=128):
+	
+	time=default_timer();
+	run.calcKMinHash(k);
+	time=default_timer()-time;
+	print "Time taken for min hash calculation and similarity calculation k="+str(k)+":"+str(time);
+	k*=2;
 #run.classify(KNeighborsClassifier(n_neighbors=15),"KNN",X,Y,X_test)
 
 #run.classify(tree.DecisionTreeClassifier(),"Decision Tree",X,Y,X_test)
 
-
-##################################################################3
-
-
-data_matrix = []
-list_articles_with_topic = []
-for art in run.list_articles:
-    if art.topics != []:
-        data_matrix.append(art.featureVector)
-        list_articles_with_topic.append(art)
-
-class kmeans:
-    def __init__(self, list_articles, data_matrix, metric, num_cluster):
-        self.data = data_matrix
-        self.list_articles = []
-        self.metric = metric
-        self.num_clusters = num_cluster
-        self.sets = []
-        s = random.sample(xrange(len(self.data)), num_cluster)
-        for i in range(len(s)):
-            self.sets.append([s[i]])
-
-#Precomputing similarity matrix
-        self.similarity = []
-        for art in list_articles:
-            if art.topics != []:
-                self.list_articles.append(art)
-
-        for i in range(len(self.list_articles)):
-            self.similarity.append([])
-
-        for i in range(len(self.list_articles)):
-            source = self.list_articles[i]
-            self.similarity[i].append(1)
-            for j in range(i+1, len(self.list_articles)):
-                dest = self.list_articles[j]
-                sim = self.eucledian(source.featureVector, dest.featureVector, metric)
-                self.similarity[i].append(sim)
-                self.similarity[j].append(sim)
-
-    def eucledian(s, l1, l2, t):
-        """
-        if t == 1 eucledian
-        t== 2 is jacard similarity
-        """
-        if(len(l1) != len(l2)):
-            print("ERROR lenghts do not match");
-            return 0
-        if (t == 1):
-
-            dis = 0.0;
-            for i in range(0, len(l1)):
-                x = l1[i] - l2[i]
-                if(x != 0):
-                    x = 1;
-                dis = dis + x;
-
-            return math.sqrt(dis)
-
-        elif (t == 2):
-            sim = 0.0
-            uni = 0.0
-            for i in range(len(l1)):
-                if(l1[i] != 0 and l2[i] != 0):
-                    sim = sim + 1
-
-                if(l1[i] != 0 or l2[i] != 0):
-                    uni = uni + 1;
-
-            return(sim/uni)
-
-        else:
-            print("ERR:unknown metric")
-
-
-    def run(self):
-# for every articl find the distance between the centres and add it to the closest
-        for itera in range(5):
-            return_list = []
-            for i in range(len(self.data)):
-                mini = float("inf");
-                index = -1;
-                art = self.data[i]
-                for j in range(len(self.sets)):
-                    #Pick the first element in the set. i.e is our centroid.
-                    if(self.sets[j][0] == i):
-                        #we are checking centroid break
-                        break
-                    centroid = self.data[self.sets[j][0]]
-                    dis = self.similarity[i][self.sets[j][0]]
-                    if self.closer(dis, mini, self.metric):
-                        mini = dis
-                        index = j
-                if(self.sets[j][0] == i):
-                    continue
-                    #we are checking centroid break
-
-                self.sets[index].append(i)
-                return_list.append(index)
-
-            new_medians = self.find_new_medians()
-            count = 0;
-# If the medians to not change then they have converged, return.
-            for k in range(len(new_medians)):
-                if new_medians[k][0] == self.sets[k][0]:
-                    count = count + 1
-            if(count == len(new_medians)):
-           #     print("Medians converged");
-                break;
-            self.sets = new_medians
-
-        return return_list
-
-
-    def check(self):
-        """
-        For each cluster find out the topics of each
-        article and find out the matching ratio.
-        """
-        for clusters in self.sets:
-            all_topics = set()
-            topics_count = {}
-            for i in clusters:
-                article = self.list_articles[i]
-                for topic in article.topics:
-                    all_topics.add(topic)
-            print("Cluster n topics ", all_topics)
-            for topics in all_topics:
-                topics_count[topics] = 0;
-            for i in clusters:
-                article = self.list_articles[i]
-                for topic in article.topics:
-                    for s in all_topics:
-                        if s in topic:
-                            topics_count[s] = topics_count[s] + 1
-            print(topics_count)
-
-
-    def closer(self, x , y, m):
-        """
-        is x closer than y is?
-        if its distance, x < y
-        if its similarity x > y
-        """
-        if(m == 1):
-            if(x < y):
-                return True
-            else:
-                return False
-        else:
-            if(y == float("inf")):
-                y = -y
-                return True
-            if(x > y):
-                return True
-            else:
-                return False
-
-
-    def find_new_medians(self):
-        new_medians = []
-        for i in range(len(self.sets)):
-            mini = float("inf");
-            median = -1;
-            for j in range(len(self.sets[i])):
-                start = self.sets[i][j]
-                dis = 0
-                for k in range(len(self.sets[i])):
-                    end = self.sets[i][k]
-                    dis = dis + self.similarity[start][end]
-                    # Find the article closest to all in the other articles in the current set.
-                if self.closer(dis, mini, self.metric):
-                    mini = dis
-                    median = start
-
-            new_medians.append([median])
-        return new_medians
-
-
-
-    def display(self):
-        for i in range(len(self.sets)):
-            print("Art" ,self.sets[i][0])
-            print("Num of articles", len(self.sets[i]))
-            for j in range(len(self.sets[i])):
-                print(self.sets[i][j])
-
-
-"""
-kmclus.display()
-kmclus.check()
-"""
-
-
-print("#####################################");
-print("KMeans clustering, Euclidean");
-
-start_time = default_timer()
-kmclust = clust.KMeans(n_clusters=8, init='k-means++', n_init=10, max_iter=300, tol=0.0001, precompute_distances=True, verbose=0, random_state=None, copy_x=True, n_jobs=1)
-
-result = kmclust.fit_predict(data_matrix)
-timeCluster = default_timer() - start_time
-print("Time to cluster ", timeCluster)
-
-entropy(result, list_articles_with_topic, 8);
-
-n_clusters=8
-verify = []
-
-cluster_table = []
-for n in range(n_clusters):
-    cluster_table.append([])
-
-for art in run.list_articles:
-    if art.topics != []:
-        result = kmclust.predict(art.featureVector)
-        for i in result:
-            cluster_table[i].append(art)
-            verify.append(i)
-
-
-for i in range(len(cluster_table)):
-#    print(i)
-    for a in cluster_table[i]:
-#        print(a.topics)
-        pass
-
-"""
-
-distance_matrix = sklearn.metrics.pairwise.euclidean_distances(data_matrix, data_matrix)
-db = sklearn.cluster.DBSCAN(eps=0.3, min_samples=2,metric="precomputed")
-result = db.fit_predict(distance_matrix)
-print(result)
-"""
-class heirarchial:
-    def __init__(self, list_articles, data_matrix, metric, num_cluster):
-        self.list_articles = list_articles
-        self.data_matrix = data_matrix
-        self.metric = metric
-        self.num_cluster = num_cluster
-
-    def run(self):
-        if(self.metric == 1):
-            data_matrix = self.data_matrix
-            distance_matrix = sklearn.metrics.pairwise.euclidean_distances(data_matrix, data_matrix)
-            # Create n sets each with single element
-            n_sets = []
-            minimums = []
-            for i in range(len(distance_matrix)):
-                n_sets.append(i)
-                minimums.append(float("inf"))
-
-            m = float("inf")
-            for i in range(0, len(distance_matrix)):
-                for j in range(i+1,len(distance_matrix)):
-                    if(distance_matrix[i][j] < m):
-                        m = minimums[i] = distance_matrix[i][j];
-
-            for k in range(len(distance_matrix) - self.num_cluster):
-                minimum = 99999
-                min_i = -1;
-                min_j = -1;
-                for i in range(0, len(distance_matrix)):
-                    for j in range(i+1,len(distance_matrix)):
-                        if(distance_matrix[i][j] <= minimum and n_sets[i] != n_sets[j]):
-                            min_i = i;
-                            min_j = j;
-                            minimum = distance_matrix[i][j]
-                distance_matrix[min_i][min_j] = float("inf")
-                self.union(n_sets,n_sets[min_i],n_sets[min_j]);
-
-            print(n_sets)
-
-
-
-
-    def union(self, array, i, j):
-        if i < j:
-            key = i
-        else:
-            key = j
-
-        for x in range(len(array)):
-            if (array[x] == i or array[x] == j):
-                array[x] = key
-
-print("#####################################");
-print("Agglomerative clustering, cosine");
-
-start_time = default_timer()
-heir = sklearn.cluster.AgglomerativeClustering(n_clusters=8, affinity='cosine', connectivity=None, n_components=None, compute_full_tree='auto',linkage='complete')
-
-X =[]
-for art in run.list_articles:
-    if art.topics != []:
-        X.append(art.featureVector)
-
-X = np.array(X)
-
-result = heir.fit_predict(X);
-timeCluster = default_timer() - start_time
-print("Time to cluster ", timeCluster)
-
-entropy(result, list_articles_with_topic, 8);
-
-
-
-print("#####################################");
-print("Agglomerative clustering, manhattan");
-
-start_time = default_timer()
-heir = sklearn.cluster.AgglomerativeClustering(n_clusters=8, affinity='manhattan', connectivity=None, n_components=None, compute_full_tree='auto',linkage='complete')
-
-X =[]
-for art in run.list_articles:
-    if art.topics != []:
-        X.append(art.featureVector)
-
-X = np.array(X)
-
-result = heir.fit_predict(X);
-timeCluster = default_timer() - start_time
-print("Time to cluster ", timeCluster)
-
-entropy(result, list_articles_with_topic, 8);
-
-
-
-
-print("#####################################");
-print("Agglomerative clustering, Euclidean");
-
-start_time = default_timer()
-heir = sklearn.cluster.AgglomerativeClustering(n_clusters=8, affinity='euclidean', connectivity=None, n_components=None, compute_full_tree='auto',linkage='ward')
-
-X =[]
-for art in run.list_articles:
-    if art.topics != []:
-        X.append(art.featureVector)
-
-X = np.array(X)
-
-result = heir.fit_predict(X);
-
-timeCluster = default_timer() - start_time
-print("Time to cluster ", timeCluster)
-entropy(result, list_articles_with_topic, 8);
-
-####################################################
-
-
-print("#####################################");
-start_time = default_timer()
-print("KMeans clustering, Jacard");
-kmclus = kmeans(list_articles_with_topic, data_matrix, 2, 8)
-result  = kmclus.run()
-timeCluster = default_timer() - start_time
-print("Time to cluster ", timeCluster)
-entropy(result, list_articles_with_topic, 8);
-
-"""
-heir = heirarchial(run.list_articles, data_matrix, 1, 10)
-heir.run()
-"""
-
-
-"""
-for (word,obj) in run.sortedDictionary.items():
-	print(word+" "+str(obj.wrd_count));
-
-
-for entry in run.list_articles:
-	pass
-#	print(entry.topics)
-"""

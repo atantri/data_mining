@@ -1,3 +1,4 @@
+# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
 import urllib
 import nltk
 import math
@@ -20,8 +21,9 @@ from timeit import default_timer
 import sklearn.cluster as clust
 import random
 from entropy import entropy
+from jaccard import jaccardSimilarity
 import random
-
+import copy
 
 
 #Authors:Aneesh Tantri,Chandhan DS
@@ -74,21 +76,42 @@ class corpus:
 		self.pre=0
 		self.kMinHash=[];
 		self.simCountList=[];
+                self.jaccardmatrix=[];
+
 	def calcKMinHash(self,k):
-	
+
 		wordList=[];
-	
+
 		for (key,value) in self.sortedDictionary.items():
 			wordList.append(key);
 		kMinHash=[[0 for x in xrange(len(self.list_articles))]for x in xrange(k)]
-		
+
+                temp_wordlist = list(wordList)
+                randomshuffles = [];
+                randomshuffles.append(temp_wordlist)
+                temp_wordlist = list(wordList)
+
+                for j in range(k-1):
+                    flag = True
+                    while flag:
+                        flag = False
+                        random.shuffle(temp_wordlist);
+                        for wlist in randomshuffles:
+                            if wlist == temp_wordlist:
+                                flag = True
+                    randomshuffles.append(list(temp_wordlist))
+
+
 		for i in range(k):
-			
-			
+
+
+			wordList = randomshuffles[i];
+
+
 			j=0;
 			for art in self.list_articles:
-				
-				
+
+
 				oldj=j;
 				for word in wordList:
 					if(art.featureMap[word]>0):
@@ -98,27 +121,25 @@ class corpus:
 				if(oldj==j):
 					kMinHash[i][j]=0;
 					j+=1;
-			random.shuffle(wordList);	
-		
+
 		self.kMinHash=kMinHash;
 		self.calcSimHash();
-		
-	
+
 	def calcSimHash(self):
-		
+
 		kMinHash=self.kMinHash;
-		
+
 		f=open("MinHasSim"+str(len(kMinHash)),'w');
 		self.simCountList=[[0 for x in xrange(len(kMinHash[0]))]for x in xrange(len(kMinHash[0]))] ;
 		for hashList in kMinHash:
 			for i in range(len(hashList)):
-				
+
 				for j in range(i+1,len(hashList)):
-				
+
 					self.simCountList[i][j]+=(1 if hashList[i]==hashList[j] else 0);
 		f.write(":");
 		for i in range(len(kMinHash[0])):
-			
+
 			if(i==0):
 				for j in range(i+1,len(kMinHash[0])):
 					f.write(str(j)+",");
@@ -129,9 +150,9 @@ class corpus:
 				f.write(str(self.simCountList[i][j])+",");
 			f.write("\n");
 		f.close();
-					
-	
-	
+
+
+
 
 	def is_stop_word(self, word):
 		"""
@@ -566,7 +587,7 @@ class MyHTMLParser(HTMLParser):
 			self.article.places.append(data);
 url = "http://web.cse.ohio-state.edu/~srini/674/public/reuters/reut2-0"
 parser=MyHTMLParser()
-for i in range(1):
+for i in range(22):
 	if i<10:
 		url1=url+"0"+str(i)+".sgm"
 
@@ -602,9 +623,21 @@ Y=[]
 X_test=[]
 #run.genTopicTestMap(X,Y,X_test)
 #run.pre=default_timer()-run.startClass
+
+
+start_time = default_timer()
+data_matrix = []
+for art in run.list_articles:
+    data_matrix.append(art.featureVector)
+
+run.jaccardmatrix = jaccardSimilarity(data_matrix)
+timetaken = default_timer() - start_time
+
+print "Time taken to run Jaccard"
+print timetaken
 k=16
 while(k<=128):
-	
+
 	time=default_timer();
 	run.calcKMinHash(k);
 	time=default_timer()-time;
@@ -613,4 +646,3 @@ while(k<=128):
 #run.classify(KNeighborsClassifier(n_neighbors=15),"KNN",X,Y,X_test)
 
 #run.classify(tree.DecisionTreeClassifier(),"Decision Tree",X,Y,X_test)
-

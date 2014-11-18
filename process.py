@@ -55,6 +55,8 @@ class local_word_attributes:
 	def __str__(self):
 		return str(self.wrd_count)
 
+
+
 class corpus:
 	def __init__(self):
 		self.list_articles = []
@@ -141,10 +143,13 @@ class corpus:
 		for i in range(len(kMinHash[0])):
 
 			if(i==0):
-				for j in range(i+1,len(kMinHash[0])):
+				for j in range(0,len(kMinHash[0])):
 					f.write(str(j)+",");
 				f.write("\n");
 			f.write(str(i)+":");
+			for j in range(i-1):
+				f.write(",");
+			f.write("1,");
 			for j in range(i+1,len(kMinHash[0])):
 				self.simCountList[i][j]/=1.0*(len(kMinHash));
 				f.write(str(self.simCountList[i][j])+",");
@@ -623,8 +628,9 @@ Y=[]
 X_test=[]
 #run.genTopicTestMap(X,Y,X_test)
 #run.pre=default_timer()-run.startClass
-
-
+#Clearing memory we don't need anymore
+run.raw_dictionary={};
+run.tfIdfDict={};
 start_time = default_timer()
 data_matrix = []
 for art in run.list_articles:
@@ -632,17 +638,42 @@ for art in run.list_articles:
 
 run.jaccardmatrix = jaccardSimilarity(data_matrix)
 timetaken = default_timer() - start_time
-
+f=open("JaccardMatrix",'w');
 print "Time taken to run Jaccard"
 print timetaken
+for i in range(len(run.jaccardmatrix)):
+	for j in range(len(run.jaccardmatrix[0])):
+		f.write(str(run.jaccardmatrix[i][j])+",")
+	f.write("\n");
+f.close();
+run.jaccardmatrix=[];
+for art in run.list_articles:
+	art.featureVector=[];
 k=16
-while(k<=128):
 
+while(k<=128):
+	f=open("JaccardMatrix","r");
+	print "starting k min hash for "+str(k);
 	time=default_timer();
 	run.calcKMinHash(k);
 	time=default_timer()-time;
 	print "Time taken for min hash calculation and similarity calculation k="+str(k)+":"+str(time);
+	mse=0;
+	n=0;
+	
+	for i in range(len(run.simCountList)):
+		str1=f.readline();
+		strArr=str1.split(",");
+		for j in range(i+1,len(run.simCountList[i])):
+			mse+=math.pow((run.simCountList[i][j]-float(strArr[j])),2);
+			n+=1;
+	mse/=n;
+	print "MSE for k = "+str(k)+" is "+str(mse)
+	
 	k*=2;
+	f.close();
+
+
 #run.classify(KNeighborsClassifier(n_neighbors=15),"KNN",X,Y,X_test)
 
 #run.classify(tree.DecisionTreeClassifier(),"Decision Tree",X,Y,X_test)

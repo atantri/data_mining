@@ -219,8 +219,50 @@ class corpus:
 		self.calcCS(resultTopicsMap,method)
 		timePred=default_timer()-start
 		print method+" Offline cost="+str(timeClassify)+" Online Cost= "+str(timePred)
+	
+	def supportItem(self,itemList):
+		count=0;
+		
+		for art in self.articleTrain:
+			isIn=true;
+			for word in itemList:
+				if word not in art.word:
+					isIn=false;
+					break;
+			if(isIn):
+				count++;
+		
+		return count;
+	self.itemIn=[];
+	self.itemOut=[];
+	self.globCount=0;
+	def initApriori(self,s):
+		for w in global_dic:
+			self.globCount+=global_dic[w].wrd_count;
+		for w in global_dic:
+			if (1.0*global_dic[wrd_count])/globCount)>s:
+				self.itemOut.append(w);
+	
+	def genAprioriPerm(self):
+		self.itemIn=[];
+		for item in self.itemOut:
+			
+	
 
-
+	
+	def aprioriGen(self,minSupport):
+		
+		for w in self.itemIn:
+			if supportItem(w)>minSupport:
+				itemOut.append(w);
+				
+		
+		
+		
+	def aprioriTrim(self)
+					
+			
+		
 	def get_raw_data(self, parser):
 		self.list_articles = parser.articleList;
 		self.topicsList=parser.topicsList;
@@ -737,7 +779,7 @@ timeCluster = default_timer() - start_time
 print("Time to cluster ", timeCluster)
 
 entropy(result, list_articles_with_topic, 8);
-
+"""
 n_clusters=8
 verify = []
 
@@ -759,12 +801,6 @@ for i in range(len(cluster_table)):
 #        print(a.topics)
         pass
 
-"""
-distance_matrix = sklearn.metrics.pairwise.euclidean_distances(data_matrix, data_matrix)
-db = sklearn.cluster.DBSCAN(eps=0.3, min_samples=2,metric="precomputed")
-result = db.fit_predict(distance_matrix)
-print(result)
-"""
 class heirarchial:
     def __init__(self, list_articles, data_matrix, metric, num_cluster):
         self.list_articles = list_articles
@@ -879,28 +915,4 @@ timeCluster = default_timer() - start_time
 print("Time to cluster ", timeCluster)
 entropy(result, list_articles_with_topic, 8);
 
-####################################################
-
-
-print("#####################################");
-start_time = default_timer()
-print("KMeans clustering, Jacard");
-kmclus = kmeans(list_articles_with_topic, data_matrix, 2, 8)
-result  = kmclus.run()
-timeCluster = default_timer() - start_time
-print("Time to cluster ", timeCluster)
-entropy(result, list_articles_with_topic, 8);
-
-"""
-heir = heirarchial(run.list_articles, data_matrix, 1, 10)
-heir.run()
-"""
-
-
-"""
-for (word,obj) in run.sortedDictionary.items():
-	print(word+" "+str(obj.wrd_count));
-for entry in run.list_articles:
-	pass
-#	print(entry.topics)
 """

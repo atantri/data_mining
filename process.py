@@ -1,3 +1,5 @@
+# vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+
 import urllib
 import nltk
 import math
@@ -20,6 +22,7 @@ from timeit import default_timer
 import sklearn.cluster as clust
 import random
 from entropy import entropy
+from AssociationRules import AssociationRules
 
 
 #Authors:Aneesh Tantri,Chandhan DS
@@ -219,50 +222,8 @@ class corpus:
 		self.calcCS(resultTopicsMap,method)
 		timePred=default_timer()-start
 		print method+" Offline cost="+str(timeClassify)+" Online Cost= "+str(timePred)
-	
-	def supportItem(self,itemList):
-		count=0;
-		
-		for art in self.articleTrain:
-			isIn=true;
-			for word in itemList:
-				if word not in art.word:
-					isIn=false;
-					break;
-			if(isIn):
-				count++;
-		
-		return count;
-	self.itemIn=[];
-	self.itemOut=[];
-	self.globCount=0;
-	def initApriori(self,s):
-		for w in global_dic:
-			self.globCount+=global_dic[w].wrd_count;
-		for w in global_dic:
-			if (1.0*global_dic[wrd_count])/globCount)>s:
-				self.itemOut.append(w);
-	
-	def genAprioriPerm(self):
-		self.itemIn=[];
-		for item in self.itemOut:
-			
-	
 
-	
-	def aprioriGen(self,minSupport):
-		
-		for w in self.itemIn:
-			if supportItem(w)>minSupport:
-				itemOut.append(w);
-				
-		
-		
-		
-	def aprioriTrim(self)
-					
-			
-		
+
 	def get_raw_data(self, parser):
 		self.list_articles = parser.articleList;
 		self.topicsList=parser.topicsList;
@@ -575,15 +536,50 @@ run.pre=default_timer()-run.startClass
 #run.classify(tree.DecisionTreeClassifier(),"Decision Tree",X,Y,X_test)
 
 
-##################################################################3
-
-
+##################################################################
 data_matrix = []
-list_articles_with_topic = []
-for art in run.list_articles:
-    if art.topics != []:
-        data_matrix.append(art.featureVector)
-        list_articles_with_topic.append(art)
+
+def getAccuracy(articleList):
+	topic_matrix = []
+	#list_articles_with_topic = []
+	length=len(articleList);
+	limit=0.8*length;
+	i=0
+	for art in articleList:
+		#print len(art.topics);
+		data_matrix.append(art.featureVector)
+		topic_matrix.append(art.topics)
+		i+=1;
+		if(i>=limit):
+			break;
+	old=i;
+
+	
+	resultList=AssociationRules(data_matrix, run.sortedDictionary, topic_matrix, 0.1)
+
+
+
+	match=0;
+	for index in range(i,length):
+		data_matrix.append(articleList[index].featureVector)
+		topic_matrix.append(articleList[index].topics)
+		matched=0;
+		for r in resultList:
+			for  word in r.X:
+				if word in articleList[index].words:
+					
+					if r.Y in articleList[index].topics:
+						match+=1;
+						matched=1;
+						break;
+			if(matched==1):
+				break;	
+			
+			
+	print "accuracy="+str(1.0*match/(length-old));
+
+getAccuracy(run.articleTrain);
+
 
 class kmeans:
     def __init__(self, list_articles, data_matrix, metric, num_cluster):
@@ -767,7 +763,7 @@ kmclus.display()
 kmclus.check()
 """
 
-
+ClusterList={};
 print("#####################################");
 print("KMeans clustering, Euclidean");
 
@@ -775,10 +771,25 @@ start_time = default_timer()
 kmclust = clust.KMeans(n_clusters=8, init='k-means++', n_init=10, max_iter=300, tol=0.0001, precompute_distances=True, verbose=0, random_state=None, copy_x=True, n_jobs=1)
 
 result = kmclust.fit_predict(data_matrix)
-timeCluster = default_timer() - start_time
-print("Time to cluster ", timeCluster)
 
-entropy(result, list_articles_with_topic, 8);
+timeCluster = default_timer() - start_time
+#print("Time to cluster ", timeCluster)
+index=0;
+for i in result:
+	if i not in ClusterList:
+		ClusterList[i]=[]
+		
+	
+	ClusterList[i].append(run.articleTrain[index]);
+	#print i;
+	index+=1;
+
+entropy(result, run.articleTrain, 8);
+for i in range(len(ClusterList)):
+	data_matrix=[];
+	getAccuracy(ClusterList[i]);
+
+
 """
 n_clusters=8
 verify = []

@@ -83,8 +83,7 @@ def prune(input_li,articleList):
                         intersec=list(intersec)
                         if intersec==input_li[j].X:
                             containsJ=True;
-                    if(containsI and containsJ):
-                        break;
+                    
                 if(containsBoth):
                     if(containsI and not containsJ):
                         if j not in pruneList:

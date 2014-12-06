@@ -25,7 +25,7 @@ def entropy(results, list_articles, num_clusters):
     for i in range(num_clusters):
         clusters.append([])
 
-
+    
     index = 0;
     for i in results:
         clusters[i].append(index)
@@ -34,14 +34,19 @@ def entropy(results, list_articles, num_clusters):
     ent = []
     cluster_size = []
     for cluster in clusters:
+        print "Size of cluster="+str(len(cluster))
+        
         all_topics = set()
         topics_count = {}
         for i in cluster:
             article = list_articles[i]
+            
             for topic in article.topics:
                 all_topics.add(topic)
+                
         for topics in all_topics:
             topics_count[topics] = 0;
+        print ("Number of topics in cluster="+str(len(all_topics)))
         for i in cluster:
             article = list_articles[i]
             for topic in article.topics:

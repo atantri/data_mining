@@ -1,4 +1,5 @@
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
+
 def recursion(input_li, level):
     if level == 0:
         return []
@@ -22,7 +23,7 @@ def recursion(input_li, level):
 def combinations(input_list, n):
     return recursion(input_list, n)
 
-
+print combinations([1,2,3], 4)
 
 class association:
     """
@@ -55,6 +56,46 @@ def sortby_sup(input_li, start, end):
         input_li[k] = input_li[i]
         input_li[i] = temp
 
+def prune(input_li,articleList):
+    pruneList=[]
+    for i in range(0, len(input_li)):
+        for j in range(i+1,len(input_li)):
+            if input_li[i].Y==input_li[j].Y:
+                containsI=False;
+                containsJ=False;
+                containsBoth=False;
+                for k in range(len(articleList)):
+                    if(not containsBoth):
+                        if input_li[i].Y in articleList[k].topics:
+                            intersec=(set(input_li[i].X)|set(input_li[j].X))&set(articleList[k].words.keys())
+                            intersec=list(intersec)
+                            if intersec==list(set(input_li[i].X)|set(input_li[j].X)):
+                                containsBoth=True;    
+                            
+                        
+                    if(not containsI):
+                        intersec=set(input_li[i].X)&set(articleList[k].words.keys())
+                        intersec=list(intersec)
+                        if intersec==input_li[i].X:
+                            containsI=True;
+                    if(not containsJ):                                
+                        intersec=set(input_li[j].X)&set(articleList[k].words.keys())
+                        intersec=list(intersec)
+                        if intersec==input_li[j].X:
+                            containsJ=True;
+                    if(containsI and containsJ):
+                        break;
+                if(containsBoth):
+                    if(containsI and not containsJ):
+                        if j not in pruneList:
+                            pruneList.append(j)
+                    elif containsJ and not containsI:
+                        if i not in pruneList:
+                            pruneList.append(i)
+    for i in range(len(pruneList)):
+        del input_li[pruneList[i]]
+
+
 
 def sort(input_li):
     for i in range(0, len(input_li)):
@@ -77,10 +118,17 @@ def sort(input_li):
             index = i
             end = i
 
+    if index != end:
+        sortby_sup(input_li, index, end)
 
 
 
-def AssociationRules(data_matrix, words, topics_matrix, support):
+
+def AssociationRules(data_matrix, words, topics_matrix, support,minConf,fileName,articleList):
+    """
+    print "Number of articles " + str(len(data_matrix))
+    print "Number of words " + str(len(words))
+    """
 
     support = support * len(data_matrix)
     support = int(support)
@@ -89,6 +137,7 @@ def AssociationRules(data_matrix, words, topics_matrix, support):
     for t in topics_matrix:
         topics = list(set(topics) | set(t))
 
+    #print "Number of topics " + str(len(topics))
     data_refined = []
 
     for d in data_matrix:
@@ -115,10 +164,11 @@ def AssociationRules(data_matrix, words, topics_matrix, support):
 
     out_list = []
     word_list = []
-
+    
     for word in words:
 # List of all the words
         word_list.append(word)
+        
 
     for i in range(len(word_list)):
 #Create a list of lists. Where each list is the word index we are checking in the Article
@@ -185,17 +235,20 @@ def AssociationRules(data_matrix, words, topics_matrix, support):
                 if count > support:
                     for it in word:
                         next_iter_words.add(it)
-
-                    if topicc not in dictionary:
-                        dictionary[topicc] = []
-                        support_dictionary[topicc] = []
-                        confidence_dictionary[topicc] = []
-
-                    dictionary[topicc].append(word)
-                    support_dictionary[topicc].append((count*1.0)/len(data_refined))
-                    confidence_dictionary[topicc].append((count*1.0)/word_count)
-                    result = association(word, topicc, ((count*1.0)/word_count), ((count*1.0)/len(data_refined)))
-                    return_list.append(result)
+                        
+                    conf=(count*1.0)/word_count;
+                    
+                    if(conf>=minConf):
+                        if topicc not in dictionary:
+                            dictionary[topicc] = []
+                            support_dictionary[topicc] = []
+                            confidence_dictionary[topicc] = []
+                    
+                        dictionary[topicc].append(word)
+                        support_dictionary[topicc].append((count*1.0)/len(data_refined))
+                        confidence_dictionary[topicc].append((count*1.0)/word_count)
+                        result = association(word, topicc, ((count*1.0)/word_count), ((count*1.0)/len(data_refined)))
+                        return_list.append(result)
 
         topics_with_support = []
 
@@ -205,18 +258,25 @@ def AssociationRules(data_matrix, words, topics_matrix, support):
 
         next_iter_words = list(next_iter_words)
 
+        if(len(next_iter_words) > 10 and comb > 3):
+            break
+
         next_iter_words = combinations(next_iter_words, comb);
 
         comb = comb + 1
         in_list = next_iter_words
-
+    prune(return_list,articleList)
     sort(return_list)
+    fRules=open(fileName,"a");
+    
+    
     for re in return_list:
         n = []
         for w in re.X:
             n.append(word_list[w])
         re.X = n
-        print re
+        fRules.write(str(re)+"\n");
+    fRules.close();
     return return_list;
 
 

@@ -25,6 +25,7 @@ from entropy import entropy
 from AssociationRules import AssociationRules
 
 
+
 #Authors:Aneesh Tantri,Chandhan DS
 class global_word_attributes:
 	"""
@@ -495,8 +496,14 @@ class MyHTMLParser(HTMLParser):
 				self.placesList.append(data)
 			self.article.places.append(data);
 url = "http://web.cse.ohio-state.edu/~srini/674/public/reuters/reut2-0"
+minSupport=100;
+while (minSupport<=0 or minSupport>1):
+	minSupport=float(input("Enter the min support desired (0-1)"))
+minConf=100;
+while (minConf<=0 or minConf>1):
+	minConf=float(input("Enter the min confidence desired (0-1)"))
 parser=MyHTMLParser()
-for i in range(1):
+for i in range(22):
 	if i<10:
 		url1=url+"0"+str(i)+".sgm"
 
@@ -537,13 +544,18 @@ run.pre=default_timer()-run.startClass
 
 
 ##################################################################
+fileName="rules"+str(minSupport)+str(minConf)+".txt"
 data_matrix = []
+fRules=open(fileName,"w");
+fRules.write("Rules\n");
+
+
 
 def getAccuracy(articleList):
 	topic_matrix = []
 	#list_articles_with_topic = []
 	length=len(articleList);
-	limit=0.8*length;
+	limit=0.6*length;
 	i=0
 	for art in articleList:
 		#print len(art.topics);
@@ -553,12 +565,20 @@ def getAccuracy(articleList):
 		if(i>=limit):
 			break;
 	old=i;
-
 	
-	resultList=AssociationRules(data_matrix, run.sortedDictionary, topic_matrix, 0.1)
+	if (length==1):
+		print "accuracy=1.0"
+		return;
+		
+	startTime=default_timer();
+	resultList=AssociationRules(data_matrix, run.sortedDictionary, topic_matrix, minSupport,minConf,fileName,articleList)
+	timeTaken=default_timer()-startTime;
+	fRules=open(fileName,"a");
+	fRules.write("Time taken to generate rules for Cluster of size "+str(length)+" is "+str(timeTaken)+"\n")
+	fRules.close();
+	print "Time taken to generate rules for cluster of size "+str(length)+" is "+str(timeTaken);
 
-
-
+	startTime=default_timer();
 	match=0;
 	for index in range(i,length):
 		data_matrix.append(articleList[index].featureVector)
@@ -567,17 +587,27 @@ def getAccuracy(articleList):
 		for r in resultList:
 			for  word in r.X:
 				if word in articleList[index].words:
-					
-					if r.Y in articleList[index].topics:
-						match+=1;
-						matched=1;
-						break;
+					matched=1;
+				
+				else:
+					matched=0;
+					break;
 			if(matched==1):
-				break;	
-			
-			
-	print "accuracy="+str(1.0*match/(length-old));
-
+				if r.Y in articleList[index].topics:
+					match+=1;
+					break;
+	timeTaken=default_timer()-startTime;
+	accuracy=1.0*match/(length-old)
+	print "accuracy="+str(accuracy);
+	
+	fRules=open(fileName,"a");
+	fRules.write("Accuracy for Cluster of size "+str(length)+" is "+str(accuracy)+"\n")
+	fRules.write("Time taken to classify for Cluster of size "+str(length)+" is "+str(timeTaken)+"\n")
+	print "Time taken to classify for cluster of size "+str(length)+" is "+str(timeTaken);
+	fRules.close();
+	
+fRules.write("Rules for all articles, number= "+str(len(run.articleTrain))+"\n")
+fRules.close();
 getAccuracy(run.articleTrain);
 
 
@@ -762,17 +792,22 @@ class kmeans:
 kmclus.display()
 kmclus.check()
 """
+###########################################################################
 
+old_data_matrix=data_matrix;
 ClusterList={};
 print("#####################################");
-print("KMeans clustering, Euclidean");
+print("kMeans clustering, Euclidean, 8 clusters");
 
 start_time = default_timer()
-kmclust = clust.KMeans(n_clusters=8, init='k-means++', n_init=10, max_iter=300, tol=0.0001, precompute_distances=True, verbose=0, random_state=None, copy_x=True, n_jobs=1)
+
+kmclust = clust.KMeans(n_clusters=8, init='k-means++', n_init=10, max_iter=350, tol=0.0001, precompute_distances=True, verbose=0, random_state=None, copy_x=True, n_jobs=1)
 
 result = kmclust.fit_predict(data_matrix)
 
-timeCluster = default_timer() - start_time
+
+
+
 #print("Time to cluster ", timeCluster)
 index=0;
 for i in result:
@@ -787,9 +822,106 @@ for i in result:
 entropy(result, run.articleTrain, 8);
 for i in range(len(ClusterList)):
 	data_matrix=[];
+	print "Size of Cluster = "+str(len(ClusterList[i]))
+	fRules=open(fileName,"a");
+	fRules.write("Rules for cluster of size"+str(len(ClusterList[i]))+"\n")
+	fRules.close();
 	getAccuracy(ClusterList[i]);
 
 
+
+ClusterList={};
+data_matrix=old_data_matrix;
+print("kMeans clustering, Euclidean, 16 clusters");
+
+start_time = default_timer()
+
+kmclust = clust.KMeans(n_clusters=16, init='k-means++', n_init=10, max_iter=350, tol=0.0001, precompute_distances=True, verbose=0, random_state=None, copy_x=True, n_jobs=1)
+
+result = kmclust.fit_predict(data_matrix)
+
+
+
+#print("Time to cluster ", timeCluster)
+index=0;
+for i in result:
+	if i not in ClusterList:
+		ClusterList[i]=[]
+		
+	
+	ClusterList[i].append(run.articleTrain[index]);
+	#print i;
+	index+=1;
+
+entropy(result, run.articleTrain, 16);
+for i in range(len(ClusterList)):
+	data_matrix=[];
+	print "Size of Cluster = "+str(len(ClusterList[i]))
+	getAccuracy(ClusterList[i]);
+
+"""
+old_data_matrix=data_matrix;
+ClusterList={};
+print("#####################################");
+print("Agglomerative clustering, Euclidean, 8 clusters");
+
+start_time = default_timer()
+
+kmclust = clust.AgglomerativeClustering(n_clusters=8, affinity='euclidean', connectivity=None, n_components=None, compute_full_tree='auto',linkage='complete')
+
+result = kmclust.fit_predict(data_matrix)
+
+
+
+
+#print("Time to cluster ", timeCluster)
+index=0;
+for i in result:
+	if i not in ClusterList:
+		ClusterList[i]=[]
+		
+	
+	ClusterList[i].append(run.articleTrain[index]);
+	#print i;
+	index+=1;
+
+entropy(result, run.articleTrain, 8);
+for i in range(len(ClusterList)):
+	data_matrix=[];
+	print "Size of Cluster = "+str(len(ClusterList[i]))
+	getAccuracy(ClusterList[i]);
+
+
+
+ClusterList={};
+data_matrix=old_data_matrix;
+print("Agglomerative clustering, Euclidean, 16 clusters");
+
+start_time = default_timer()
+
+kmclust = clust.AgglomerativeClustering(n_clusters=8, affinity='euclidean', connectivity=None, n_components=None, compute_full_tree='auto',linkage='complete')
+
+result = kmclust.fit_predict(data_matrix)
+
+
+
+#print("Time to cluster ", timeCluster)
+index=0;
+for i in result:
+	if i not in ClusterList:
+		ClusterList[i]=[]
+		
+	
+	ClusterList[i].append(run.articleTrain[index]);
+	#print i;
+	index+=1;
+
+entropy(result, run.articleTrain, 16);
+for i in range(len(ClusterList)):
+	data_matrix=[];
+	print "Size of Cluster = "+str(len(ClusterList[i]))
+	getAccuracy(ClusterList[i]);
+"""
 """
 n_clusters=8
 verify = []
